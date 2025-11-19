@@ -68,7 +68,7 @@ __all__ = [
     'hwpunit_to_px',
 ]
 
-__version__ = '0.5.0'
+__version__ = '0.5.1'
 
 # GitHub Repository URL
 GITHUB_URL = "https://github.com/c0z0c/helper_hwp"
