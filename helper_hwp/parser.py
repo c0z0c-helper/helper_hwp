@@ -839,8 +839,10 @@ def open_hwp(file_path: str, iter_mode: IterMode = IterMode.SEQUENTIAL) -> HwpDo
     """
     return HwpDocument(file_path, iter_mode)
 
+def hwp_to_txt(hwp_path: str):
+    return hwp_to_text(hwp_path)
 
-def hwp_to_txt(hwp_path: str) -> str:
+def hwp_to_text(hwp_path: str) -> str:
     """
     HWP 파일에서 문단 텍스트만 추출하여 반환합니다.
     - 본 함수는 Paragraph 요소만 필터링하여 줄 단위로 반환합니다.
@@ -859,6 +861,9 @@ def hwp_to_txt(hwp_path: str) -> str:
                     lines.append(element.text)
     return '\n'.join(lines)
 
+
+def hwp_to_md(hwp_path: str):
+    return hwp_to_markdown(hwp_path)
 
 def hwp_to_markdown(hwp_path: str) -> str:
     """

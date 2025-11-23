@@ -67,8 +67,7 @@ git push
 #### 2-1. `helper_hwp/__init__.py`
 
 ```python
-# 예: 0.5.0 → 0.5.1로 변경
-__version__ = '0.5.1'  # 이 줄만 수정
+__version__ = '0.5.2'
 ```
 
 #### 2-2. `pyproject.toml`

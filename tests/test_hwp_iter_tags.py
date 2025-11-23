@@ -7,6 +7,7 @@ test.hwp를 open_hwp()로 문단 단위로 텍스트 추출하는 데모
 
 import sys
 import os
+from pathlib import Path
 import struct
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -35,7 +36,7 @@ def estimate_table_size(table) -> tuple:
 
 def main():
     # test.hwp 파일 경로
-    test_file = "test.hwp"
+    test_file =  str(Path(__file__).parent / "test.hwp")
 
     # 파일 존재 확인
     if not os.path.exists(test_file):
@@ -51,7 +52,7 @@ def main():
     print("open_hwp() 데모 - test.hwp 태그 기반 순회")
     print("=" * 80)
 
-    output_file = "test_helper_hwp.txt"
+    output_file = str(Path(__file__).parent / "test_hwp_iter_tags.txt")
     with open(output_file, 'w', encoding='utf-8') as f:
 
         # Context Manager로 파일 로드

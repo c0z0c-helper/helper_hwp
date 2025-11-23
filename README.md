@@ -53,13 +53,9 @@ from helper_hwp import open_hwp
 # HWP 문서 열기
 doc = open_hwp('example.hwp')
 
-# 문단 단위 순회
-for paragraph in doc.iter_paragraphs():
+# 테그 단위 순회
+for paragraph in doc.iter_tags():
     print(paragraph.text)
-
-# 표 단위 순회
-for table in doc.iter_tables():
-    print(table.rows)
 ```
 
 ## 사용 예제

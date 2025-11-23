@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2025-11-23
+
+### Fixed
+- README 오타 수정
+- PyPI 설치 후 import 오류 해결
+- hwp_to_txt hwp_to_text
+- hwp_to_md hwp_to_markdown
+
 ## [0.5.1] - 2025-11-19
 
 ### Fixed
