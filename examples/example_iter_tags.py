@@ -100,3 +100,4 @@ for mode in (IterMode.SEQUENTIAL, IterMode.STRUCTURED):
     print('='*60)
     for k, v in counts.items():
         print(f"{k.value}: {v}")
+

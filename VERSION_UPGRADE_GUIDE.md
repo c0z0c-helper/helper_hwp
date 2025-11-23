@@ -67,7 +67,7 @@ git push
 #### 2-1. `helper_hwp/__init__.py`
 
 ```python
-__version__ = '0.5.2'
+__version__ = '0.5.3'
 ```
 
 #### 2-2. `pyproject.toml`

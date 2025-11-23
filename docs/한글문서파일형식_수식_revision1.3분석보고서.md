@@ -64,3 +64,4 @@ HWP 수식 편집기는 복잡한 수식도 템플릿(Template)을 통해 간단
 | **화살표** | `larrow` ($\leftarrow$), `rarrow` ($\rightarrow$), `UPARROW` ($\Uparrow$). | `lrarrow` ($\leftrightarrow$), `hookleft`, `hookright`. |
 | **글자 장식** | `acute`, `bar`, `vec`, `hat`, `tilde` 등. | 해당 명령어 뒤에 장식할 글자를 붙임 (예: `acute A`). |
 
+

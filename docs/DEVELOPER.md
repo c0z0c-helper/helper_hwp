@@ -27,8 +27,7 @@ helper_hwp/
 │   └── utils.py             # 유틸리티 함수
 ├── tests/                   # 테스트 코드
 │   ├── test_hwp_to_txt.py
-│   ├── test_hwp_to_markdown.py
-│   └── test.hwp             # 샘플 HWP 파일
+│   └── test_hwp_to_markdown.py
 ├── examples/                # 사용 예제
 │   ├── example_hwp_to_txt.py
 │   ├── example_hwp_to_markdown.py
@@ -293,10 +292,10 @@ Semantic Versioning (MAJOR.MINOR.PATCH) 사용:
 
 ### 릴리스 체크리스트
 
-1. [CHANGELOG.md](../CHANGELOG.md) 업데이트
+1. [CHANGELOG.md](https://github.com/c0z0c/helper_hwp/blob/master/CHANGELOG.md) 업데이트
 2. 버전 번호 업데이트
-   - [pyproject.toml](../pyproject.toml)
-   - [helper_hwp/__init__.py](../helper_hwp/__init__.py)
+   - [pyproject.toml](https://github.com/c0z0c/helper_hwp/blob/master/pyproject.toml)
+   - [helper_hwp/__init__.py](https://github.com/c0z0c/helper_hwp/blob/master/helper_hwp/__init__.py)
 3. 테스트 실행
 ```bash
 pytest
@@ -317,8 +316,9 @@ python -m twine upload dist/*
 
 이 프로젝트는 Apache License 2.0 하에 배포됩니다.
 
-출처: https://github.com/c0z0c/helper_hwp
+출처: [https://github.com/c0z0c/helper_hwp](https://github.com/c0z0c/helper_hwp)
 
 ## 문의
 
-- GitHub Issues: https://github.com/c0z0c/helper_hwp/issues
+- GitHub Issues: [https://github.com/c0z0c/helper_hwp/issues](https://github.com/c0z0c/helper_hwp/issues)
+

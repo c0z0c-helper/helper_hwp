@@ -19,3 +19,4 @@ else:
     text = hwp_to_txt(str(hwp_path))
     # 출력 길이가 큰 경우 앞부분만 확인
     print(text[:200])
+
