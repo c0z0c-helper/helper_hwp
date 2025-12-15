@@ -9,12 +9,19 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 def read_requirements(req_file: str = "requirements.txt") -> list:
     """requirements.txt에서 패키지 목록 읽기
 
+    패키지 설치 후에는 requirements.txt 파일이 없으므로
+    하드코딩된 필수 패키지 목록을 반환합니다.
+
     Args:
-        req_file: requirements.txt 파일 경로
+        req_file: requirements.txt 파일 경로 (개발 모드용)
 
     Returns:
         패키지 목록 (주석, 빈 줄 제외)
     """
+    # 하드코딩된 필수 패키지 목록 (requirements.txt와 동기화 필요)
+    default_packages = ["olefile", "pycryptodome", "helper-md-doc", "playwright"]
+
+    # 개발 모드: requirements.txt 파일이 있으면 읽기
     req_path = os.path.join(os.path.dirname(__file__), "..", "..", req_file)
     packages = []
 
@@ -33,8 +40,10 @@ def read_requirements(req_file: str = "requirements.txt") -> list:
                     )
                     if pkg_name:
                         packages.append(pkg_name)
+        return packages if packages else default_packages
 
-    return packages
+    # 설치된 패키지 모드: 하드코딩된 목록 사용
+    return default_packages
 
 
 def install_playwright_browsers() -> None:
@@ -69,9 +78,19 @@ def check_and_print_dependencies() -> None:
     required_packages = read_requirements()
     missing_packages = []
 
+    # PyPI 패키지명 → Python import명 매핑
+    package_import_map = {
+        "pycryptodome": "Crypto",
+        "helper-md-doc": "helper_md_doc",
+        "playwright": "playwright",
+        "olefile": "olefile",
+    }
+
     for package in required_packages:
+        # 매핑 테이블에서 import 이름 찾기, 없으면 하이픈을 언더스코어로 변환
+        import_name = package_import_map.get(package, package.replace("-", "_"))
         try:
-            __import__(package)
+            __import__(import_name)
         except ImportError:
             missing_packages.append(package)
 
@@ -80,7 +99,7 @@ def check_and_print_dependencies() -> None:
 
     message = "\n"
     message += "-" * 80 + "\n"
-    message += "설치 필요한 페키지\n"
+    message += "설치 필요한 패키지\n"
     message += f"pip install {' '.join(missing_packages)}\n"
     raise ImportError(message)
 
@@ -97,9 +116,19 @@ def check_and_install_dependencies() -> None:
     required_packages = read_requirements()
     missing_packages = []
 
+    # PyPI 패키지명 → Python import명 매핑
+    package_import_map = {
+        "pycryptodome": "Crypto",
+        "helper-md-doc": "helper_md_doc",
+        "playwright": "playwright",
+        "olefile": "olefile",
+    }
+
     for package in required_packages:
+        # 매핑 테이블에서 import 이름 찾기, 없으면 하이픈을 언더스코어로 변환
+        import_name = package_import_map.get(package, package.replace("-", "_"))
         try:
-            __import__(package)
+            __import__(import_name)
         except ImportError:
             missing_packages.append(package)
 
