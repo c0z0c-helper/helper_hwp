@@ -10,12 +10,13 @@ Test PyPI와 Production PyPI 모두 지원합니다.
     python upload_to_pypi.py           # Production PyPI에 업로드
 """
 
+import argparse
 import os
-import sys
 import shutil
 import subprocess
-import argparse
+import sys
 from pathlib import Path
+
 
 def run_command(cmd, description):
     """명령어 실행 헬퍼 함수"""
@@ -48,7 +49,8 @@ def clean_build_artifacts():
     print("\n이전 빌드 아티팩트 정리 중...")
 
     def _on_rm_error(func, path, exc_info):
-        import os, stat
+        import os
+        import stat
         print(f"권한 수정 후 재시도: {path}")
         os.chmod(path, stat.S_IWRITE)
         func(path)

@@ -26,18 +26,21 @@ HWP 문서 파서 (고수준 API)
 - 주석/문서화만 추가했으며 코드 동작은 변경하지 않았습니다.
 """
 
+import os
 import struct
 from typing import List, Optional, Union
 
+from .char_paragraph import CharType, Paragraph
 from .constants import (
-    ControlID, ElementType, ExtendedControlCode, IterMode,
-    ParagraphConstants
+    ControlID,
+    ElementType,
+    ExtendedControlCode,
+    IterMode,
+    ParagraphConstants,
 )
-from .char_paragraph import Paragraph, CharType
-from .document_structure import CharShapeInfo, Section, HwpFile
-from .parsed_elements import ParsedParagraph, ParsedTable, ParsedPage
+from .document_structure import CharShapeInfo, HwpFile, Section
 from .models import Version
-
+from .parsed_elements import ParsedPage, ParsedParagraph, ParsedTable
 
 
 class HwpDocument:
@@ -103,7 +106,7 @@ class HwpDocument:
                 # 글자 모양 정보 추출 (max 기준)
                 char_shape = None
                 char_shapes_list = []
-                
+
                 if paragraph.char_shape_ids:
                     all_shapes = []
                     for pos, shape_id in paragraph.char_shape_ids:
@@ -111,7 +114,7 @@ class HwpDocument:
                         if shape:
                             all_shapes.append(shape)
                             char_shapes_list.append((pos, shape))
-                    
+
                     if all_shapes:
                         # 여러 글자모양이 존재하면 대표값을 선택 (스펙/문서 정보 기반)
                         max_font_size = max(s.font_size for s in all_shapes)
@@ -127,19 +130,19 @@ class HwpDocument:
                             underline=any_underline,
                             expansion=max_expansion,
                             spacing=all_shapes[0].spacing,
-                            color=all_shapes[0].color
+                            color=all_shapes[0].color,
                         )
                 elif paragraph.char_shape_id is not None:
                     # 단일 글자 모양 참조
                     char_shape = self._hwp.char_shapes.get(paragraph.char_shape_id)
                     if char_shape:
                         char_shapes_list = [(0, char_shape)]
-                
+
                 parsed_para = ParsedParagraph(
                     text=para_text,
                     paragraph=paragraph,
                     char_shape=char_shape,
-                    char_shapes=char_shapes_list
+                    char_shapes=char_shapes_list,
                 )
                 current_page_paragraphs.append(parsed_para)
 
@@ -147,19 +150,15 @@ class HwpDocument:
                 # 스펙: 문단 내 페이지 제어는 인라인/확장 제어 또는 문단 속성으로 표현될 수 있음
                 if paragraph.is_page_break:
                     if current_page_paragraphs:
-                        pages.append(ParsedPage(
-                            page_number=page_number,
-                            paragraphs=current_page_paragraphs
-                        ))
+                        pages.append(
+                            ParsedPage(page_number=page_number, paragraphs=current_page_paragraphs)
+                        )
                         current_page_paragraphs = []
                         page_number += 1
 
         # 마지막 페이지 추가
         if current_page_paragraphs:
-            pages.append(ParsedPage(
-                page_number=page_number,
-                paragraphs=current_page_paragraphs
-            ))
+            pages.append(ParsedPage(page_number=page_number, paragraphs=current_page_paragraphs))
 
         return pages
 
@@ -227,7 +226,7 @@ class HwpDocument:
                     # 글자 모양 정보 추출 (max 기준)
                     char_shape = None
                     char_shapes_list = []
-                    
+
                     if paragraph.char_shape_ids:
                         all_shapes = []
                         for pos, shape_id in paragraph.char_shape_ids:
@@ -235,7 +234,7 @@ class HwpDocument:
                             if shape:
                                 all_shapes.append(shape)
                                 char_shapes_list.append((pos, shape))
-                        
+
                         if all_shapes:
                             max_font_size = max(s.font_size for s in all_shapes)
                             max_expansion = max(s.expansion for s in all_shapes)
@@ -250,19 +249,21 @@ class HwpDocument:
                                 underline=any_underline,
                                 expansion=max_expansion,
                                 spacing=all_shapes[0].spacing,
-                                color=all_shapes[0].color
+                                color=all_shapes[0].color,
                             )
                     elif paragraph.char_shape_id is not None:
                         char_shape = self._hwp.char_shapes.get(paragraph.char_shape_id)
                         if char_shape:
                             char_shapes_list = [(0, char_shape)]
-                    
-                    results.append(ParsedParagraph(
-                        text=para_text,
-                        paragraph=paragraph,
-                        char_shape=char_shape,
-                        char_shapes=char_shapes_list
-                    ))
+
+                    results.append(
+                        ParsedParagraph(
+                            text=para_text,
+                            paragraph=paragraph,
+                            char_shape=char_shape,
+                            char_shapes=char_shapes_list,
+                        )
+                    )
 
         elif element_type == ElementType.TABLE:
             # 테이블 검색 (table_metadata 직접 사용)
@@ -271,31 +272,35 @@ class HwpDocument:
             for section_idx, section in enumerate(self.sections):
                 for table_idx, info in enumerate(section.table_metadata):
                     # section.table_metadata는 본 구현의 내부 표현(스펙의 표 메타데이터를 파싱한 결과)
-                    if info.get('ctrl_id') == ControlID.TABLE:
+                    if info.get("ctrl_id") == ControlID.TABLE:
                         table_counter += 1
                         table = ParsedTable(
                             code=ExtendedControlCode.TABLE,
                             data=None,
-                            control_id=info.get('ctrl_id'),
-                            x=info.get('x'),
-                            y=info.get('y'),
-                            width=info.get('width'),
-                            height=info.get('height'),
-                            margin_left=info.get('margin_left'),
-                            margin_right=info.get('margin_right'),
-                            margin_top=info.get('margin_top'),
-                            margin_bottom=info.get('margin_bottom'),
-                            rows=info.get('rows'),
-                            cols=info.get('cols'),
-                            cell_count=info.get('cell_para_counts', [])[-1] if info.get('cell_para_counts') else None,
-                            cell_para_counts=info.get('cell_para_counts'),
-                            cell_spacing=info.get('cell_spacing'),
-                            row_sizes=info.get('row_sizes'),
-                            cell_widths=info.get('cell_widths'),
-                            cell_heights=info.get('cell_heights'),
-                            cell_colspans=info.get('cell_colspans'),
-                            cell_rowspans=info.get('cell_rowspans'),
-                            table_index=table_counter
+                            control_id=info.get("ctrl_id"),
+                            x=info.get("x"),
+                            y=info.get("y"),
+                            width=info.get("width"),
+                            height=info.get("height"),
+                            margin_left=info.get("margin_left"),
+                            margin_right=info.get("margin_right"),
+                            margin_top=info.get("margin_top"),
+                            margin_bottom=info.get("margin_bottom"),
+                            rows=info.get("rows"),
+                            cols=info.get("cols"),
+                            cell_count=(
+                                info.get("cell_para_counts", [])[-1]
+                                if info.get("cell_para_counts")
+                                else None
+                            ),
+                            cell_para_counts=info.get("cell_para_counts"),
+                            cell_spacing=info.get("cell_spacing"),
+                            row_sizes=info.get("row_sizes"),
+                            cell_widths=info.get("cell_widths"),
+                            cell_heights=info.get("cell_heights"),
+                            cell_colspans=info.get("cell_colspans"),
+                            cell_rowspans=info.get("cell_rowspans"),
+                            table_index=table_counter,
                         )
                         results.append(table)
 
@@ -304,10 +309,9 @@ class HwpDocument:
             for section in self.sections:
                 for paragraph in section.paragraphs:
                     if paragraph.is_page_break:
-                        results.append(ParsedParagraph(
-                            text=paragraph.to_string().strip(),
-                            paragraph=paragraph
-                        ))
+                        results.append(
+                            ParsedParagraph(text=paragraph.to_string().strip(), paragraph=paragraph)
+                        )
 
         else:
             # 다른 타입은 아직 미구현
@@ -355,23 +359,23 @@ class HwpDocument:
         """
 
         table_counter = 0  # 테이블 순서 추적
-        
+
         # 섹션별 테이블 메타데이터를 미리 리스트로 구성
         # 목적: 문단 내 확장 제어를 발견했을 때 table_metadata와 매칭하여 상세 정보 제공
         all_table_metadata = []
         for section in self.sections:
             for info in section.table_metadata:
-                if info.get('ctrl_id') == ControlID.TABLE:
+                if info.get("ctrl_id") == ControlID.TABLE:
                     all_table_metadata.append(info)
-        
+
         for section in self.sections:
             for paragraph in section.paragraphs:
                 # 페이지 구분 체크
                 if paragraph.is_page_break:
-                    yield (ElementType.PAGE_BREAK, ParsedParagraph(
-                        text=paragraph.to_string().strip(),
-                        paragraph=paragraph
-                    ))
+                    yield (
+                        ElementType.PAGE_BREAK,
+                        ParsedParagraph(text=paragraph.to_string().strip(), paragraph=paragraph),
+                    )
 
                 # 문단 텍스트
                 para_text = paragraph.to_string().strip()
@@ -379,7 +383,7 @@ class HwpDocument:
                 # 글자 모양 정보 추출 (max 기준)
                 char_shape = None
                 char_shapes_list = []
-                
+
                 if paragraph.char_shape_ids:
                     all_shapes = []
                     for pos, shape_id in paragraph.char_shape_ids:
@@ -387,7 +391,7 @@ class HwpDocument:
                         if shape:
                             all_shapes.append(shape)
                             char_shapes_list.append((pos, shape))
-                    
+
                     if all_shapes:
                         max_font_size = max(s.font_size for s in all_shapes)
                         max_expansion = max(s.expansion for s in all_shapes)
@@ -402,19 +406,22 @@ class HwpDocument:
                             underline=any_underline,
                             expansion=max_expansion,
                             spacing=all_shapes[0].spacing,
-                            color=all_shapes[0].color
+                            color=all_shapes[0].color,
                         )
                 elif paragraph.char_shape_id is not None:
                     char_shape = self._hwp.char_shapes.get(paragraph.char_shape_id)
                     if char_shape:
                         char_shapes_list = [(0, char_shape)]
-                
-                yield (ElementType.PARAGRAPH, ParsedParagraph(
-                    text=para_text,
-                    paragraph=paragraph,
-                    char_shape=char_shape,
-                    char_shapes=char_shapes_list
-                ))
+
+                yield (
+                    ElementType.PARAGRAPH,
+                    ParsedParagraph(
+                        text=para_text,
+                        paragraph=paragraph,
+                        char_shape=char_shape,
+                        char_shapes=char_shapes_list,
+                    ),
+                )
 
                 # 인라인 제어 및 확장 제어 (테이블, 그림, 수식, 쪽 번호 등)
                 # 스펙: 문단 내 제어문자는 char.char_type으로 구분 (CharType.INLINE_CONTROL / EXTENDED_CONTROL)
@@ -422,179 +429,212 @@ class HwpDocument:
                     # 인라인 제어 문자 처리 (쪽 번호 등)
                     if char.char_type == CharType.INLINE_CONTROL:
                         from .constants import InlineControlCode
+
                         # InlineControlCode.PAGE_NUMBER (19) 처리
                         if char.code == InlineControlCode.PAGE_NUMBER:
-                            yield (ElementType.AUTO_NUMBER, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=None
-                            ))
-                    
+                            yield (
+                                ElementType.AUTO_NUMBER,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=None
+                                ),
+                            )
+
                     elif char.char_type == CharType.EXTENDED_CONTROL:
                         # control_data의 첫 4바이트에서 Control ID 추출
                         # (스펙: CTRL_HEADER 또는 확장 제어의 첫 필드에 컨트롤 ID 포함)
                         control_id = None
-                        if char.control_data and len(char.control_data) >= ParagraphConstants.CONTROL_ID_SIZE:
-                            control_id = struct.unpack('<I', char.control_data[0:ParagraphConstants.CONTROL_ID_SIZE])[0]
-                        
+                        if (
+                            char.control_data
+                            and len(char.control_data) >= ParagraphConstants.CONTROL_ID_SIZE
+                        ):
+                            control_id = struct.unpack(
+                                "<I", char.control_data[0 : ParagraphConstants.CONTROL_ID_SIZE]
+                            )[0]
+
                         # 컨트롤 ID / 코드 기반으로 타입 결정 및 yield
                         # 일부 컨트롤은 ctrl_headers(문단의 CTRL_HEADER 레코드)로도 존재하므로
                         # 둘을 모두 처리해야 정확한 매핑이 됨.
                         if control_id == ControlID.AUTO_NUMBER:
-                            yield (ElementType.AUTO_NUMBER, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.AUTO_NUMBER,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         # 쪽 번호 위치 컨트롤 ('pgnp')
                         elif control_id == ControlID.PAGE_NUM_POS:
-                            yield (ElementType.PAGE_NUM_POS, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.PAGE_NUM_POS,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         # 머리말 컨트롤 ('head')
                         elif control_id == ControlID.HEADER:
-                            yield (ElementType.HEADER, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.HEADER,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         # 꼬리말 컨트롤 ('foot')
                         elif control_id == ControlID.FOOTER:
-                            yield (ElementType.FOOTER, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.FOOTER,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         # Control ID 기반 타입 결정
-                        elif control_id == ControlID.TABLE or char.code == ExtendedControlCode.TABLE:
+                        elif (
+                            control_id == ControlID.TABLE or char.code == ExtendedControlCode.TABLE
+                        ):
                             # 표 발견: table_metadata에서 상세 정보를 찾아 매핑
                             table_counter += 1
-                            
+
                             # table_metadata에서 상세 정보 찾기
-                            table_info = all_table_metadata[table_counter - 1] if table_counter <= len(all_table_metadata) else {}
-                            
+                            table_info = (
+                                all_table_metadata[table_counter - 1]
+                                if table_counter <= len(all_table_metadata)
+                                else {}
+                            )
+
                             table = ParsedTable(
                                 code=char.code,
                                 data=char.control_data,
                                 control_id=control_id,
                                 table_index=table_counter,
-                                x=table_info.get('x'),
-                                y=table_info.get('y'),
-                                width=table_info.get('width'),
-                                height=table_info.get('height'),
-                                margin_left=table_info.get('margin_left'),
-                                margin_right=table_info.get('margin_right'),
-                                margin_top=table_info.get('margin_top'),
-                                margin_bottom=table_info.get('margin_bottom'),
-                                rows=table_info.get('rows'),
-                                cols=table_info.get('cols'),
-                                cell_count=table_info.get('cell_para_counts', [])[-1] if table_info.get('cell_para_counts') else None,
-                                cell_para_counts=table_info.get('cell_para_counts'),
-                                cell_spacing=table_info.get('cell_spacing'),
-                                row_sizes=table_info.get('row_sizes'),
-                                cell_widths=table_info.get('cell_widths'),
-                                cell_heights=table_info.get('cell_heights'),
-                                cell_colspans=table_info.get('cell_colspans'),
-                                cell_rowspans=table_info.get('cell_rowspans')
+                                x=table_info.get("x"),
+                                y=table_info.get("y"),
+                                width=table_info.get("width"),
+                                height=table_info.get("height"),
+                                margin_left=table_info.get("margin_left"),
+                                margin_right=table_info.get("margin_right"),
+                                margin_top=table_info.get("margin_top"),
+                                margin_bottom=table_info.get("margin_bottom"),
+                                rows=table_info.get("rows"),
+                                cols=table_info.get("cols"),
+                                cell_count=(
+                                    table_info.get("cell_para_counts", [])[-1]
+                                    if table_info.get("cell_para_counts")
+                                    else None
+                                ),
+                                cell_para_counts=table_info.get("cell_para_counts"),
+                                cell_spacing=table_info.get("cell_spacing"),
+                                row_sizes=table_info.get("row_sizes"),
+                                cell_widths=table_info.get("cell_widths"),
+                                cell_heights=table_info.get("cell_heights"),
+                                cell_colspans=table_info.get("cell_colspans"),
+                                cell_rowspans=table_info.get("cell_rowspans"),
                             )
                             yield (ElementType.TABLE, table)
                         elif char.code == ExtendedControlCode.PICTURE:
-                            yield (ElementType.PICTURE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.PICTURE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.OLE:
-                            yield (ElementType.OLE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.OLE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.EQUATION:
-                            yield (ElementType.EQUATION, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.EQUATION,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.FOOTNOTE:
-                            yield (ElementType.FOOTNOTE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.FOOTNOTE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.ENDNOTE:
-                            yield (ElementType.ENDNOTE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.ENDNOTE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.HYPERLINK:
-                            yield (ElementType.HYPERLINK, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.HYPERLINK,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.COMMENT:
-                            yield (ElementType.COMMENT, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.COMMENT,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.SHAPE:
-                            yield (ElementType.SHAPE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.SHAPE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         else:
                             # 기타 확장 제어는 SHAPE_COMPONENT로 처리(기본 매핑)
-                            yield (ElementType.SHAPE_COMPONENT, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
-                
+                            yield (
+                                ElementType.SHAPE_COMPONENT,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
+
                 # 문단 내 ctrl_headers 확인 (확장 제어에 대응하는 CTRL_HEADER 레코드)
                 # 스펙: 컨트롤 헤더 레코드는 문단에 대응하는 별도의 레코드로 저장될 수 있으며,
                 # 이 데이터는 컨트롤의 초기 데이터(예: 자동 번호, 머리말/꼬리말 등)를 포함.
                 for ctrl_id, ctrl_header_data in paragraph.ctrl_headers:
                     # 자동 번호 컨트롤 ('atno')
                     if ctrl_id == ControlID.AUTO_NUMBER:
-                        yield (ElementType.AUTO_NUMBER, ParsedTable(
-                            code=21,  # 페이지 컨트롤 코드 (문서 표현상 코드 표기)
-                            data=ctrl_header_data[4:],  # 컨트롤 ID 이후 데이터
-                            control_id=ctrl_id
-                        ))
+                        yield (
+                            ElementType.AUTO_NUMBER,
+                            ParsedTable(
+                                code=21,  # 페이지 컨트롤 코드 (문서 표현상 코드 표기)
+                                data=ctrl_header_data[4:],  # 컨트롤 ID 이후 데이터
+                                control_id=ctrl_id,
+                            ),
+                        )
                     # 새 번호 지정 컨트롤 ('nwno')
                     elif ctrl_id == ControlID.NEW_NUMBER:
-                        yield (ElementType.NEW_NUMBER, ParsedTable(
-                            code=21,
-                            data=ctrl_header_data[4:],
-                            control_id=ctrl_id
-                        ))
+                        yield (
+                            ElementType.NEW_NUMBER,
+                            ParsedTable(code=21, data=ctrl_header_data[4:], control_id=ctrl_id),
+                        )
                     # 쪽 번호 위치 컨트롤 ('pgnp')
                     elif ctrl_id == ControlID.PAGE_NUM_POS:
-                        yield (ElementType.PAGE_NUM_POS, ParsedTable(
-                            code=21,
-                            data=ctrl_header_data[4:],
-                            control_id=ctrl_id
-                        ))
+                        yield (
+                            ElementType.PAGE_NUM_POS,
+                            ParsedTable(code=21, data=ctrl_header_data[4:], control_id=ctrl_id),
+                        )
                     # 머리말 컨트롤 ('head')
                     elif ctrl_id == ControlID.HEADER:
-                        yield (ElementType.HEADER, ParsedTable(
-                            code=16,  # 머리말/꼬리말 코드
-                            data=ctrl_header_data[4:],
-                            control_id=ctrl_id
-                        ))
+                        yield (
+                            ElementType.HEADER,
+                            ParsedTable(
+                                code=16,  # 머리말/꼬리말 코드
+                                data=ctrl_header_data[4:],
+                                control_id=ctrl_id,
+                            ),
+                        )
                     # 꼬리말 컨트롤 ('foot')
                     elif ctrl_id == ControlID.FOOTER:
-                        yield (ElementType.FOOTER, ParsedTable(
-                            code=16,
-                            data=ctrl_header_data[4:],
-                            control_id=ctrl_id
-                        ))
+                        yield (
+                            ElementType.FOOTER,
+                            ParsedTable(code=16, data=ctrl_header_data[4:], control_id=ctrl_id),
+                        )
 
     def _iter_structured(self):
         """STRUCTURED 모드: Section → Paragraph → Char 계층 구조
@@ -605,27 +645,30 @@ class HwpDocument:
         - 테이블 메타데이터와의 매칭을 통해 표 정보를 제공
         """
         table_counter = 0  # 테이블 순서 추적
-        
+
         # 섹션별 테이블 메타데이터를 미리 리스트로 구성
         all_table_metadata = []
         for section in self.sections:
             for info in section.table_metadata:
-                if info.get('ctrl_id') == ControlID.TABLE:
+                if info.get("ctrl_id") == ControlID.TABLE:
                     all_table_metadata.append(info)
-        
+
         for section_idx, section in enumerate(self.sections):
-            yield (ElementType.SECTION, ParsedParagraph(
-                text=f"[Section {section_idx}]",
-                paragraph=Paragraph()
-            ))
-            
+            yield (
+                ElementType.SECTION,
+                ParsedParagraph(text=f"[Section {section_idx}]", paragraph=Paragraph()),
+            )
+
             for para_idx, paragraph in enumerate(section.paragraphs):
                 # 페이지 구분
                 if paragraph.is_page_break:
-                    yield (ElementType.PAGE_BREAK, ParsedParagraph(
-                        text=f"[Section {section_idx}, Para {para_idx}] PAGE_BREAK",
-                        paragraph=paragraph
-                    ))
+                    yield (
+                        ElementType.PAGE_BREAK,
+                        ParsedParagraph(
+                            text=f"[Section {section_idx}, Para {para_idx}] PAGE_BREAK",
+                            paragraph=paragraph,
+                        ),
+                    )
 
                 # 문단
                 para_text = paragraph.to_string().strip()
@@ -633,7 +676,7 @@ class HwpDocument:
                 # 글자 모양 정보 추출 (max 기준)
                 char_shape = None
                 char_shapes_list = []
-                
+
                 if paragraph.char_shape_ids:
                     all_shapes = []
                     for pos, shape_id in paragraph.char_shape_ids:
@@ -641,7 +684,7 @@ class HwpDocument:
                         if shape:
                             all_shapes.append(shape)
                             char_shapes_list.append((pos, shape))
-                    
+
                     if all_shapes:
                         max_font_size = max(s.font_size for s in all_shapes)
                         max_expansion = max(s.expansion for s in all_shapes)
@@ -656,143 +699,182 @@ class HwpDocument:
                             underline=any_underline,
                             expansion=max_expansion,
                             spacing=all_shapes[0].spacing,
-                            color=all_shapes[0].color
+                            color=all_shapes[0].color,
                         )
                 elif paragraph.char_shape_id is not None:
                     char_shape = self._hwp.char_shapes.get(paragraph.char_shape_id)
                     if char_shape:
                         char_shapes_list = [(0, char_shape)]
-                
-                yield (ElementType.PARAGRAPH, ParsedParagraph(
-                    text=para_text,
-                    paragraph=paragraph,
-                    char_shape=char_shape,
-                    char_shapes=char_shapes_list
-                ))
+
+                yield (
+                    ElementType.PARAGRAPH,
+                    ParsedParagraph(
+                        text=para_text,
+                        paragraph=paragraph,
+                        char_shape=char_shape,
+                        char_shapes=char_shapes_list,
+                    ),
+                )
 
                 # 문단 내 문자별 확장 제어
                 for char_idx, char in enumerate(paragraph.chars):
                     if char.char_type == CharType.EXTENDED_CONTROL:
                         # control_data의 첫 4바이트에서 Control ID 추출
                         control_id = None
-                        if char.control_data and len(char.control_data) >= ParagraphConstants.CONTROL_ID_SIZE:
-                            control_id = struct.unpack('<I', char.control_data[0:ParagraphConstants.CONTROL_ID_SIZE])[0]
-                        
+                        if (
+                            char.control_data
+                            and len(char.control_data) >= ParagraphConstants.CONTROL_ID_SIZE
+                        ):
+                            control_id = struct.unpack(
+                                "<I", char.control_data[0 : ParagraphConstants.CONTROL_ID_SIZE]
+                            )[0]
+
                         # Control ID 기반 타입 결정
                         if control_id == ControlID.TABLE:
                             table_counter += 1
-                            
+
                             # table_metadata에서 상세 정보 찾기
-                            table_info = all_table_metadata[table_counter - 1] if table_counter <= len(all_table_metadata) else {}
-                            
-                            yield (ElementType.TABLE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id,
-                                table_index=table_counter,
-                                x=table_info.get('x'),
-                                y=table_info.get('y'),
-                                width=table_info.get('width'),
-                                height=table_info.get('height'),
-                                margin_left=table_info.get('margin_left'),
-                                margin_right=table_info.get('margin_right'),
-                                margin_top=table_info.get('margin_top'),
-                                margin_bottom=table_info.get('margin_bottom'),
-                                rows=table_info.get('rows'),
-                                cols=table_info.get('cols'),
-                                cell_count=table_info.get('cell_para_counts', [])[-1] if table_info.get('cell_para_counts') else None,
-                                cell_para_counts=table_info.get('cell_para_counts'),
-                                cell_spacing=table_info.get('cell_spacing'),
-                                row_sizes=table_info.get('row_sizes'),
-                                cell_widths=table_info.get('cell_widths'),
-                                cell_heights=table_info.get('cell_heights'),
-                                cell_colspans=table_info.get('cell_colspans'),
-                                cell_rowspans=table_info.get('cell_rowspans')
-                            ))
+                            table_info = (
+                                all_table_metadata[table_counter - 1]
+                                if table_counter <= len(all_table_metadata)
+                                else {}
+                            )
+
+                            yield (
+                                ElementType.TABLE,
+                                ParsedTable(
+                                    code=char.code,
+                                    data=char.control_data,
+                                    control_id=control_id,
+                                    table_index=table_counter,
+                                    x=table_info.get("x"),
+                                    y=table_info.get("y"),
+                                    width=table_info.get("width"),
+                                    height=table_info.get("height"),
+                                    margin_left=table_info.get("margin_left"),
+                                    margin_right=table_info.get("margin_right"),
+                                    margin_top=table_info.get("margin_top"),
+                                    margin_bottom=table_info.get("margin_bottom"),
+                                    rows=table_info.get("rows"),
+                                    cols=table_info.get("cols"),
+                                    cell_count=(
+                                        table_info.get("cell_para_counts", [])[-1]
+                                        if table_info.get("cell_para_counts")
+                                        else None
+                                    ),
+                                    cell_para_counts=table_info.get("cell_para_counts"),
+                                    cell_spacing=table_info.get("cell_spacing"),
+                                    row_sizes=table_info.get("row_sizes"),
+                                    cell_widths=table_info.get("cell_widths"),
+                                    cell_heights=table_info.get("cell_heights"),
+                                    cell_colspans=table_info.get("cell_colspans"),
+                                    cell_rowspans=table_info.get("cell_rowspans"),
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.TABLE:
                             table_counter += 1
-                            
+
                             # table_metadata에서 상세 정보 찾기
-                            table_info = all_table_metadata[table_counter - 1] if table_counter <= len(all_table_metadata) else {}
-                            
-                            yield (ElementType.TABLE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id,
-                                table_index=table_counter,
-                                x=table_info.get('x'),
-                                y=table_info.get('y'),
-                                width=table_info.get('width'),
-                                height=table_info.get('height'),
-                                margin_left=table_info.get('margin_left'),
-                                margin_right=table_info.get('margin_right'),
-                                margin_top=table_info.get('margin_top'),
-                                margin_bottom=table_info.get('margin_bottom'),
-                                rows=table_info.get('rows'),
-                                cols=table_info.get('cols'),
-                                cell_count=table_info.get('cell_para_counts', [])[-1] if table_info.get('cell_para_counts') else None,
-                                cell_para_counts=table_info.get('cell_para_counts'),
-                                cell_spacing=table_info.get('cell_spacing'),
-                                row_sizes=table_info.get('row_sizes'),
-                                cell_widths=table_info.get('cell_widths'),
-                                cell_heights=table_info.get('cell_heights'),
-                                cell_colspans=table_info.get('cell_colspans'),
-                                cell_rowspans=table_info.get('cell_rowspans')
-                            ))
+                            table_info = (
+                                all_table_metadata[table_counter - 1]
+                                if table_counter <= len(all_table_metadata)
+                                else {}
+                            )
+
+                            yield (
+                                ElementType.TABLE,
+                                ParsedTable(
+                                    code=char.code,
+                                    data=char.control_data,
+                                    control_id=control_id,
+                                    table_index=table_counter,
+                                    x=table_info.get("x"),
+                                    y=table_info.get("y"),
+                                    width=table_info.get("width"),
+                                    height=table_info.get("height"),
+                                    margin_left=table_info.get("margin_left"),
+                                    margin_right=table_info.get("margin_right"),
+                                    margin_top=table_info.get("margin_top"),
+                                    margin_bottom=table_info.get("margin_bottom"),
+                                    rows=table_info.get("rows"),
+                                    cols=table_info.get("cols"),
+                                    cell_count=(
+                                        table_info.get("cell_para_counts", [])[-1]
+                                        if table_info.get("cell_para_counts")
+                                        else None
+                                    ),
+                                    cell_para_counts=table_info.get("cell_para_counts"),
+                                    cell_spacing=table_info.get("cell_spacing"),
+                                    row_sizes=table_info.get("row_sizes"),
+                                    cell_widths=table_info.get("cell_widths"),
+                                    cell_heights=table_info.get("cell_heights"),
+                                    cell_colspans=table_info.get("cell_colspans"),
+                                    cell_rowspans=table_info.get("cell_rowspans"),
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.PICTURE:
-                            yield (ElementType.PICTURE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.PICTURE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.OLE:
-                            yield (ElementType.OLE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.OLE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.EQUATION:
-                            yield (ElementType.EQUATION, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.EQUATION,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.FOOTNOTE:
-                            yield (ElementType.FOOTNOTE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.FOOTNOTE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.ENDNOTE:
-                            yield (ElementType.ENDNOTE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.ENDNOTE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.HYPERLINK:
-                            yield (ElementType.HYPERLINK, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.HYPERLINK,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.COMMENT:
-                            yield (ElementType.COMMENT, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.COMMENT,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         elif char.code == ExtendedControlCode.SHAPE:
-                            yield (ElementType.SHAPE, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.SHAPE,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
                         else:
-                            yield (ElementType.SHAPE_COMPONENT, ParsedTable(
-                                code=char.code,
-                                data=char.control_data,
-                                control_id=control_id
-                            ))
+                            yield (
+                                ElementType.SHAPE_COMPONENT,
+                                ParsedTable(
+                                    code=char.code, data=char.control_data, control_id=control_id
+                                ),
+                            )
 
     def to_text(self) -> str:
         """전체 텍스트 추출"""
@@ -839,8 +921,10 @@ def open_hwp(file_path: str, iter_mode: IterMode = IterMode.SEQUENTIAL) -> HwpDo
     """
     return HwpDocument(file_path, iter_mode)
 
+
 def hwp_to_txt(hwp_path: str):
     return hwp_to_text(hwp_path)
+
 
 def hwp_to_text(hwp_path: str) -> str:
     """
@@ -859,11 +943,8 @@ def hwp_to_text(hwp_path: str) -> str:
             if element_type == ElementType.PARAGRAPH:
                 if element.text.strip():
                     lines.append(element.text)
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
-
-def hwp_to_md(hwp_path: str):
-    return hwp_to_markdown(hwp_path)
 
 def hwp_to_markdown(hwp_path: str) -> str:
     """
@@ -877,8 +958,8 @@ def hwp_to_markdown(hwp_path: str) -> str:
     Returns:
         마크다운 형식 문자열
     """
-    from typing import List, Set, Tuple, Optional
-    
+    from typing import List, Optional, Set, Tuple
+
     def format_text_to_markdown(text: str, font_size: float, bold: bool) -> str:
         """폰트 크기와 굵기를 마크다운으로 변환"""
         if not text:
@@ -892,72 +973,84 @@ def hwp_to_markdown(hwp_path: str) -> str:
         elif bold:
             return f"**{text}**"
         return text
-    
-    def create_markdown_table(paragraphs: List[str], rows: int, cols: int, 
-                             cell_para_counts: List[int],
-                             cell_colspans: Optional[List[int]] = None,
-                             cell_rowspans: Optional[List[int]] = None) -> str:
+
+    def create_markdown_table(
+        paragraphs: List[str],
+        rows: int,
+        cols: int,
+        cell_para_counts: List[int],
+        cell_colspans: Optional[List[int]] = None,
+        cell_rowspans: Optional[List[int]] = None,
+    ) -> str:
         """셀 정보를 기반으로 마크다운 테이블 생성"""
         if not paragraphs or rows == 0 or cols == 0:
             return ""
-        
+
         # 병합된 셀 추적
         skip_cells: Set[Tuple[int, int]] = set()
-        
+
         if cell_colspans and cell_rowspans:
             parsed_cell_idx = 0
             logical_row = 0
             logical_col = 0
-            
+
             while parsed_cell_idx < len(cell_para_counts):
                 while (logical_row, logical_col) in skip_cells:
                     logical_col += 1
                     if logical_col >= cols:
                         logical_col = 0
                         logical_row += 1
-                
-                colspan = cell_colspans[parsed_cell_idx] if parsed_cell_idx < len(cell_colspans) else 1
-                rowspan = cell_rowspans[parsed_cell_idx] if parsed_cell_idx < len(cell_rowspans) else 1
-                
+
+                colspan = (
+                    cell_colspans[parsed_cell_idx] if parsed_cell_idx < len(cell_colspans) else 1
+                )
+                rowspan = (
+                    cell_rowspans[parsed_cell_idx] if parsed_cell_idx < len(cell_rowspans) else 1
+                )
+
                 for r in range(logical_row, logical_row + rowspan):
                     for c in range(logical_col, logical_col + colspan):
                         if not (r == logical_row and c == logical_col):
                             skip_cells.add((r, c))
-                
+
                 logical_col += 1
                 if logical_col >= cols:
                     logical_col = 0
                     logical_row += 1
                 parsed_cell_idx += 1
-        
+
         table_lines = []
         para_idx = 0
         parsed_cell_idx = 0
-        
+
         for row_idx in range(rows):
             row_cells = []
             for col_idx in range(cols):
                 if (row_idx, col_idx) in skip_cells:
                     row_cells.append("")
                     continue
-                
-                cell_para_count = cell_para_counts[parsed_cell_idx] if parsed_cell_idx < len(cell_para_counts) else 0
+
+                cell_para_count = (
+                    cell_para_counts[parsed_cell_idx]
+                    if parsed_cell_idx < len(cell_para_counts)
+                    else 0
+                )
                 cell_text_parts = []
                 for _ in range(cell_para_count):
                     if para_idx < len(paragraphs):
-                        text = paragraphs[para_idx].lstrip('#').strip().replace('**', '')
+                        text = paragraphs[para_idx].lstrip("#").strip().replace("**", "")
                         cell_text_parts.append(text)
                         para_idx += 1
-                
-                row_cells.append(' '.join(cell_text_parts) if cell_text_parts else "")
+
+                row_cells.append(" ".join(cell_text_parts) if cell_text_parts else "")
                 parsed_cell_idx += 1
-            
+
             table_lines.append("| " + " | ".join(row_cells) + " |")
             if row_idx == 0:
                 table_lines.append("| " + " | ".join(["---"] * cols) + " |")
-        
+
         return "\n".join(table_lines)
-    
+
     markdown_lines = []
     table_paragraphs = []
     in_table = False
@@ -965,13 +1058,17 @@ def hwp_to_markdown(hwp_path: str) -> str:
     current_table_cols = 0
     current_table_cell_para_counts = []
     current_table_element = None
-    
+
     with open_hwp(hwp_path) as doc:
         for element_type, element in doc.tags:
-            if element_type in [ElementType.PICTURE, ElementType.COMMENT,
-                               ElementType.FOOTNOTE, ElementType.ENDNOTE]:
+            if element_type in [
+                ElementType.PICTURE,
+                ElementType.COMMENT,
+                ElementType.FOOTNOTE,
+                ElementType.ENDNOTE,
+            ]:
                 continue
-            
+
             elif element_type == ElementType.TABLE:
                 if in_table and table_paragraphs:
                     table_md = create_markdown_table(
@@ -979,35 +1076,45 @@ def hwp_to_markdown(hwp_path: str) -> str:
                         current_table_rows,
                         current_table_cols,
                         current_table_cell_para_counts,
-                        current_table_element.cell_colspans if current_table_element and hasattr(current_table_element, 'cell_colspans') else None,
-                        current_table_element.cell_rowspans if current_table_element and hasattr(current_table_element, 'cell_rowspans') else None
+                        (
+                            current_table_element.cell_colspans
+                            if current_table_element
+                            and hasattr(current_table_element, "cell_colspans")
+                            else None
+                        ),
+                        (
+                            current_table_element.cell_rowspans
+                            if current_table_element
+                            and hasattr(current_table_element, "cell_rowspans")
+                            else None
+                        ),
                     )
                     markdown_lines.append(table_md)
                     markdown_lines.append("")
-                
+
                 in_table = True
                 table_paragraphs = []
                 current_table_rows = element.rows if element.rows else 0
                 current_table_cols = element.cols if element.cols else 0
-                current_table_cell_para_counts = element.cell_para_counts if element.cell_para_counts else []
+                current_table_cell_para_counts = (
+                    element.cell_para_counts if element.cell_para_counts else []
+                )
                 current_table_element = element
-            
+
             elif element_type == ElementType.PARAGRAPH:
                 text = element.text.strip() if element.text else ""
-                
+
                 if element.char_shape:
                     markdown_text = format_text_to_markdown(
-                        text,
-                        element.char_shape.font_size,
-                        element.char_shape.bold
+                        text, element.char_shape.font_size, element.char_shape.bold
                     )
                 else:
                     markdown_text = text
-                
+
                 if in_table:
-                    markdown_text_clean = markdown_text.replace('\n', ' ').replace('\r', ' ')
+                    markdown_text_clean = markdown_text.replace("\n", " ").replace("\r", " ")
                     table_paragraphs.append(markdown_text_clean)
-                    
+
                     if current_table_cell_para_counts:
                         expected_paras = sum(current_table_cell_para_counts)
                         if len(table_paragraphs) >= expected_paras:
@@ -1016,12 +1123,22 @@ def hwp_to_markdown(hwp_path: str) -> str:
                                 current_table_rows,
                                 current_table_cols,
                                 current_table_cell_para_counts,
-                                current_table_element.cell_colspans if current_table_element and hasattr(current_table_element, 'cell_colspans') else None,
-                                current_table_element.cell_rowspans if current_table_element and hasattr(current_table_element, 'cell_rowspans') else None
+                                (
+                                    current_table_element.cell_colspans
+                                    if current_table_element
+                                    and hasattr(current_table_element, "cell_colspans")
+                                    else None
+                                ),
+                                (
+                                    current_table_element.cell_rowspans
+                                    if current_table_element
+                                    and hasattr(current_table_element, "cell_rowspans")
+                                    else None
+                                ),
                             )
                             markdown_lines.append(table_md)
                             markdown_lines.append("")
-                            
+
                             in_table = False
                             table_paragraphs = []
                             current_table_cell_para_counts = []
@@ -1029,17 +1146,55 @@ def hwp_to_markdown(hwp_path: str) -> str:
                     if text:
                         markdown_lines.append(markdown_text)
                         markdown_lines.append("")
-        
+
         if in_table and table_paragraphs:
             table_md = create_markdown_table(
                 table_paragraphs,
                 current_table_rows,
                 current_table_cols,
                 current_table_cell_para_counts,
-                current_table_element.cell_colspans if current_table_element and hasattr(current_table_element, 'cell_colspans') else None,
-                current_table_element.cell_rowspans if current_table_element and hasattr(current_table_element, 'cell_rowspans') else None
+                (
+                    current_table_element.cell_colspans
+                    if current_table_element and hasattr(current_table_element, "cell_colspans")
+                    else None
+                ),
+                (
+                    current_table_element.cell_rowspans
+                    if current_table_element and hasattr(current_table_element, "cell_rowspans")
+                    else None
+                ),
             )
             markdown_lines.append(table_md)
             markdown_lines.append("")
-    
+
     return "\n".join(markdown_lines)
+
+
+def hwp_to_md(hwp_path: str):
+    return hwp_to_markdown(hwp_path)
+
+
+def hwp_to_pdf(hwp_path: str, output_pdf_path: Optional[str] = None):
+    """HWP 파일을 PDF로 변환 (playwright 사용 - Windows/Linux/Mac 공통)"""
+    from helper_md_doc import md_to_html
+    from playwright.sync_api import sync_playwright
+
+    if not os.path.isfile(hwp_path):
+        raise FileNotFoundError(f"HWP 파일을 찾을 수 없습니다: {hwp_path}")
+
+    # HWP -> Markdown -> HTML
+    strmd = hwp_to_markdown(hwp_path)
+    strhtml = md_to_html(strmd, use_base64=True)
+
+    if output_pdf_path is None:
+        output_pdf_path = hwp_path.rsplit(".", 1)[0] + ".pdf"
+
+    # HTML -> PDF (playwright 사용)
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.set_content(strhtml)
+        page.pdf(path=output_pdf_path, format="A4", print_background=True)
+        browser.close()
+
+    return output_pdf_path

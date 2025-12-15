@@ -10,11 +10,10 @@ from typing import List
 
 import olefile
 
+from .char_paragraph import Paragraph
 from .constants import ControlID, RecordTag
 from .models import Header
-from .char_paragraph import Paragraph
 from .record_stream import RecordStream
-
 
 
 @dataclass

@@ -9,9 +9,10 @@ import struct
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-from .constants import ParagraphConstants
 from .char_paragraph import Paragraph
+from .constants import ParagraphConstants
 from .document_structure import CharShapeInfo
+
 
 @dataclass
 class ParsedParagraph:

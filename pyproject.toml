@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "helper-hwp"
-version = "0.5.4"
+version = "0.5.5"
 description = "Python HWP 파일 파서 및 텍스트 추출 라이브러리"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -40,11 +40,25 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
+doc = [
+    "helper-md-doc>=0.1.0",    # HTML, DOCX 변환
+]
+pdf = [
+    "helper-md-doc>=0.1.0",    # HTML 변환
+    "playwright>=1.40.0",      # PDF 변환 (Windows/Linux/Mac 공통)
+]
+
+[project.scripts]
+hwp2txt = "helper_hwp.cli:hwp2txt_main"
+hwp2md = "helper_hwp.cli:hwp2md_main"
+hwp2html = "helper_hwp.cli:hwp2html_main"
+hwp2doc = "helper_hwp.cli:hwp2doc_main"
+hwp2pdf = "helper_hwp.cli:hwp2pdf_main"
 
 [project.urls]
-Homepage = "https://github.com/c0z0c/helper_hwp"
-Repository = "https://github.com/c0z0c/helper_hwp"
-Issues = "https://github.com/c0z0c/helper_hwp/issues"
+Homepage = "https://github.com/c0z0c-helper/helper_hwp"
+Repository = "https://github.com/c0z0c-helper/helper_hwp"
+Issues = "https://github.com/c0z0c-helper/helper_hwp/issues"
 
 [tool.setuptools]
 packages = ["helper_hwp"]

@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from helper_hwp import open_hwp, ElementType, IterMode
+from helper_hwp import ElementType, IterMode, open_hwp
 from helper_hwp.parsed_elements import ParsedParagraph, ParsedTable
 
 hwp_path = Path(__file__).resolve().parents[1] / 'tests' / 'test.hwp'

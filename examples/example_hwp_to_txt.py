@@ -2,7 +2,6 @@
 Example: hwp_to_txt
 HWP 파일에서 문단 텍스트만 추출하여 출력하는 간단한 예제(MVP).
 """
-from pathlib import Path
 import sys
 from pathlib import Path
 

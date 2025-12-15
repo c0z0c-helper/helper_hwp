@@ -2,7 +2,6 @@
 Example: hwp_to_markdown
 HWP 파일을 간단한 마크다운으로 변환하는 사용 예제(MVP).
 """
-from pathlib import Path
 import sys
 from pathlib import Path
 

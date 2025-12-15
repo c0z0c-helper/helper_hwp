@@ -6,6 +6,7 @@ HWP 파일 포맷 상수 정의
 
 from enum import Enum, IntEnum
 
+
 class RecordTag(IntEnum):
     """레코드 태그 ID (HWP 5.0 스펙 기준)
 

@@ -46,7 +46,7 @@ helper_hwp/
 ### 1. 저장소 클론
 
 ```bash
-git clone https://github.com/c0z0c/helper_hwp.git
+git clone https://github.com/c0z0c-helper/helper_hwp.git
 cd helper_hwp
 ```
 
@@ -223,7 +223,7 @@ hwp_to_txt(), hwp_to_markdown()
 
 ### 1. 이슈 생성
 
-버그 리포트나 기능 요청은 [GitHub Issues](https://github.com/c0z0c/helper_hwp/issues)에 등록해 주세요.
+버그 리포트나 기능 요청은 [GitHub Issues](https://github.com/c0z0c-helper/helper_hwp/issues)에 등록해 주세요.
 
 ### 2. 브랜치 전략
 
@@ -292,10 +292,10 @@ Semantic Versioning (MAJOR.MINOR.PATCH) 사용:
 
 ### 릴리스 체크리스트
 
-1. [CHANGELOG.md](https://github.com/c0z0c/helper_hwp/blob/master/CHANGELOG.md) 업데이트
+1. [CHANGELOG.md](https://github.com/c0z0c-helper/helper_hwp/blob/master/CHANGELOG.md) 업데이트
 2. 버전 번호 업데이트
-   - [pyproject.toml](https://github.com/c0z0c/helper_hwp/blob/master/pyproject.toml)
-   - [helper_hwp/__init__.py](https://github.com/c0z0c/helper_hwp/blob/master/helper_hwp/__init__.py)
+   - [pyproject.toml](https://github.com/c0z0c-helper/helper_hwp/blob/master/pyproject.toml)
+   - [helper_hwp/__init__.py](https://github.com/c0z0c-helper/helper_hwp/blob/master/helper_hwp/__init__.py)
 3. 테스트 실행
 ```bash
 pytest
@@ -316,9 +316,9 @@ python -m twine upload dist/*
 
 이 프로젝트는 Apache License 2.0 하에 배포됩니다.
 
-출처: [https://github.com/c0z0c/helper_hwp](https://github.com/c0z0c/helper_hwp)
+출처: [https://github.com/c0z0c-helper/helper_hwp](https://github.com/c0z0c-helper/helper_hwp)
 
 ## 문의
 
-- GitHub Issues: [https://github.com/c0z0c/helper_hwp/issues](https://github.com/c0z0c/helper_hwp/issues)
+- GitHub Issues: [https://github.com/c0z0c-helper/helper_hwp/issues](https://github.com/c0z0c-helper/helper_hwp/issues)
 

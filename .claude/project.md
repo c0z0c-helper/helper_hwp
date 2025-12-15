@@ -18,3 +18,4 @@ test_helper_hwp.py는 test.hwp를 helper_hwp.py 이용하여 테스트한 소스
 - **스타일 가이드**
   - PEP 8 + Black + isort
   - PEP 484 (타입힌트), PEP 257 (Docstring)
+- conda activate py311_helper

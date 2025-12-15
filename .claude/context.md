@@ -7,7 +7,7 @@
 - try except 금지, 오류 발생 시 즉시 중단
 - 코드 제안 후 임의 문서화 금지
 - 문서화는 요청시 진행
-
+- conda activate py311_helper
 
 ## 1. 개발 원칙
 - **MVP 최적화**: 재현성(reproducibility) 우선

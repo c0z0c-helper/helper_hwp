@@ -567,13 +567,13 @@ with open_hwp('document.hwp') as doc:
 
 ## 추가 리소스
 
-- [GitHub 저장소](https://github.com/c0z0c/helper_hwp)
-- [개발자 문서](https://github.com/c0z0c/helper_hwp/blob/master/DEVELOPER.md)
-- [예제 코드](https://github.com/c0z0c/helper_hwp/blob/master/examples/)
+- [GitHub 저장소](https://github.com/c0z0c-helper/helper_hwp)
+- [개발자 문서](https://github.com/c0z0c-helper/helper_hwp/blob/master/DEVELOPER.md)
+- [예제 코드](https://github.com/c0z0c-helper/helper_hwp/blob/master/examples/)
 
 ## 라이센스
 
 이 프로젝트는 Apache License 2.0 하에 배포됩니다.
 
-출처: [https://github.com/c0z0c/helper_hwp](https://github.com/c0z0c/helper_hwp)
+출처: [https://github.com/c0z0c-helper/helper_hwp](https://github.com/c0z0c-helper/helper_hwp)
 

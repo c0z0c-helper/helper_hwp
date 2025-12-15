@@ -3,8 +3,8 @@ Example: iter_tags to JSON
 문서 순회(`iter_tags`)의 모든 ElementType을 JSON 파일로 변환하는 예제.
 SEQUENTIAL 및 STRUCTURED 모드의 결과를 각각 JSON 파일로 저장합니다.
 """
-import sys
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -12,7 +12,7 @@ from typing import Any, Dict
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from helper_hwp import open_hwp, ElementType, IterMode
+from helper_hwp import ElementType, IterMode, open_hwp
 from helper_hwp.parsed_elements import ParsedParagraph, ParsedTable
 
 

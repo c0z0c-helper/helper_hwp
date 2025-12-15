@@ -9,6 +9,7 @@ from typing import BinaryIO, Optional
 
 from .constants import HeaderConstants, RecordBitMask
 
+
 @dataclass
 class Version:
     """HWP 버전 정보 (예: 5.1.2.3)"""

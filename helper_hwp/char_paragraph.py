@@ -15,8 +15,12 @@ from enum import Enum
 from typing import BinaryIO, List, Optional, Tuple
 
 from .constants import (
-    CharConstants, CharControlCode, ExtendedControlCode,
-    PageBreakType, ParagraphConstants, RecordTag
+    CharConstants,
+    CharControlCode,
+    ExtendedControlCode,
+    PageBreakType,
+    ParagraphConstants,
+    RecordTag,
 )
 from .models import Record
 

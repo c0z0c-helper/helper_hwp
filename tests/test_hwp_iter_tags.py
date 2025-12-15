@@ -5,10 +5,11 @@ test.hwp를 open_hwp()로 문단 단위로 텍스트 추출하는 데모
     python test_helper_hwp.py
 """
 
-import sys
 import os
-from pathlib import Path
 import struct
+import sys
+from pathlib import Path
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # UTF-8 출력 설정 (Windows 콘솔 대응)
@@ -17,7 +18,7 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-from helper_hwp import open_hwp, ElementType, IterMode
+from helper_hwp import ElementType, IterMode, open_hwp
 
 
 def estimate_table_size(table) -> tuple:
