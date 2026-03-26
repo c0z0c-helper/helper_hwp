@@ -1,22 +1,53 @@
-import shutil
-import sys
+"""
+test_hwp_to_pdf.py
+
+hwp_to_pdf pytest 테스트.
+playwright 미설치 시 skip.
+"""
+
+from __future__ import annotations
+
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import pytest
 
-from helper_hwp import hwp_to_pdf
-
-
-def test_hwp_to_pdf() -> None:
-    """HWP → PDF 변환 테스트 (한글 지원)"""
-
-    hwp_path = Path(__file__).parent / "test.hwp"
-    pdf_path = Path(__file__).parent / "test_hwp_to_pdf.pdf"
-
-    pdf_path = hwp_to_pdf(str(hwp_path), str(pdf_path))
-
-    print(f"변환 완료: {pdf_path}")
+TESTS_DIR = Path(__file__).parent
+HWP_TEST = TESTS_DIR / "test.hwp"
 
 
-if __name__ == "__main__":
-    test_hwp_to_pdf()
+def _has_playwright() -> bool:
+    try:
+        import playwright  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+@pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
+@pytest.mark.skipif(not _has_playwright(), reason="playwright 미설치")
+def test_hwp_to_pdf_creates_file(tmp_path):
+    """hwp_to_pdf: PDF 파일 생성 확인"""
+    from helper_hwp import hwp_to_pdf
+
+    pdf_path = tmp_path / "output.pdf"
+    result = hwp_to_pdf(str(HWP_TEST), str(pdf_path))
+    assert Path(result).exists()
+    assert Path(result).stat().st_size >= 1
+
+
+@pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
+@pytest.mark.skipif(not _has_playwright(), reason="playwright 미설치")
+def test_hwp_to_pdf_default_path(tmp_path):
+    """hwp_to_pdf: output_pdf_path=None 이면 동일 이름으로 생성"""
+    import shutil
+    from helper_hwp import hwp_to_pdf
+
+    # tmp_path에 hwp 복사
+    tmp_hwp = tmp_path / "test.hwp"
+    shutil.copy(str(HWP_TEST), str(tmp_hwp))
+
+    result = hwp_to_pdf(str(tmp_hwp))
+    expected = tmp_path / "test.pdf"
+    assert Path(result) == expected
+    assert expected.exists()

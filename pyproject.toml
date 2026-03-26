@@ -60,8 +60,9 @@ Homepage = "https://github.com/c0z0c-helper/helper_hwp"
 Repository = "https://github.com/c0z0c-helper/helper_hwp"
 Issues = "https://github.com/c0z0c-helper/helper_hwp/issues"
 
-[tool.setuptools]
-packages = ["helper_hwp"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["helper_hwp*"]
 
 [tool.black]
 line-length = 100

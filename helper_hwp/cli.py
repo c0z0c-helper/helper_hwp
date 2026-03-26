@@ -22,7 +22,8 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 spec = importlib.util.spec_from_file_location(
-    "requirements_rnac", os.path.join(os.path.dirname(__file__), "requirements_rnac.py")
+    "requirements_rnac",
+    os.path.join(os.path.dirname(__file__), "v50", "requirements_rnac.py"),
 )
 requirements_rnac = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(requirements_rnac)
