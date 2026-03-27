@@ -24,13 +24,16 @@ from typing import Union
 _OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 # ZIP Local File Header magic
 _ZIP_MAGIC = b"\x50\x4b\x03\x04"
-# 읽을 바이트 수 (최소 8바이트)
-_MAGIC_READ_SIZE = 8
+# HWP 1.x 파일 시그니처 (첫 21바이트 고정, V3.00 서명 공유)
+_HWP10_MAGIC = b"HWP Document File V3."
+# 읽을 바이트 수 (최소 21바이트)
+_MAGIC_READ_SIZE = 21
 
 
 class HwpFormat(Enum):
     """감지된 HWP 파일 포맷"""
 
+    HWP_V10 = auto()  # HWP 97 (V3.00, 단순 바이너리, Johab 인코딩)
     HWP_V5 = auto()  # HWP 5.0 (OLE Compound File Binary)
     HWPX = auto()  # HWPX (OWPML, ZIP 기반)
     UNKNOWN = auto()  # 알 수 없음
@@ -54,6 +57,8 @@ def detect_format(file_path: Union[str, Path]) -> HwpFormat:
     with open(path, "rb") as f:
         header = f.read(_MAGIC_READ_SIZE)
 
+    if header[:21] == _HWP10_MAGIC:
+        return HwpFormat.HWP_V10
     if header[:8] == _OLE_MAGIC:
         return HwpFormat.HWP_V5
     if header[:4] == _ZIP_MAGIC:

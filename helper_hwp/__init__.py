@@ -88,6 +88,15 @@ from .owpml.parser import (
 # 통합 자동 감지 API
 from .detector import HwpFormat, detect_format
 
+# HWP 97 (V3.00) API
+from .v97.parser import (
+    Hwp97Document,
+    hwp97_to_markdown,
+    hwp97_to_md,
+    hwp97_to_txt,
+    open_hwp97,
+)
+
 
 def open_auto(file_path: str, iter_mode=None):
     """
@@ -104,6 +113,8 @@ def open_auto(file_path: str, iter_mode=None):
         ValueError: 지원하지 않는 파일 포맷
     """
     fmt = detect_format(file_path)
+    if fmt == HwpFormat.HWP_V10:
+        return open_hwp97(file_path)
     if fmt == HwpFormat.HWP_V5:
         return open_hwp(file_path, **({"iter_mode": iter_mode} if iter_mode else {}))
     if fmt == HwpFormat.HWPX:
@@ -122,6 +133,8 @@ def auto_to_txt(file_path: str) -> str:
         추출된 텍스트
     """
     fmt = detect_format(file_path)
+    if fmt == HwpFormat.HWP_V10:
+        return hwp97_to_txt(file_path)
     if fmt == HwpFormat.HWP_V5:
         return hwp_to_txt(file_path)
     if fmt == HwpFormat.HWPX:
@@ -140,6 +153,8 @@ def auto_to_markdown(file_path: str) -> str:
         마크다운 문자열
     """
     fmt = detect_format(file_path)
+    if fmt == HwpFormat.HWP_V10:
+        return hwp97_to_markdown(file_path)
     if fmt == HwpFormat.HWP_V5:
         return hwp_to_markdown(file_path)
     if fmt == HwpFormat.HWPX:
@@ -193,6 +208,12 @@ __all__ = [
     "auto_to_txt",
     "auto_to_markdown",
     "auto_to_md",
+    # HWP 97 (V3.00) API
+    "Hwp97Document",
+    "open_hwp97",
+    "hwp97_to_txt",
+    "hwp97_to_markdown",
+    "hwp97_to_md",
 ]
 
 __version__ = "0.5.5"

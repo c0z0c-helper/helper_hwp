@@ -22,6 +22,8 @@ from helper_hwp import (
     auto_to_txt,
     hwp_to_markdown,
     hwp_to_txt,
+    hwp97_to_markdown,
+    hwp97_to_txt,
     hwpx_to_markdown,
     hwpx_to_txt,
 )
@@ -32,7 +34,8 @@ OUTPUT_DIR = TESTS_DIR / "output"
 # 테스트 대상 파일
 HWP_TEST = TESTS_DIR / "test.hwp"
 HWP_TABLE = TESTS_DIR / "testTable.hwp"
-HWP_30 = TESTS_DIR / "test30.hwp"
+HWP_10 = TESTS_DIR / "test10.hwp"
+HWP_97 = TESTS_DIR / "test97.hwp"
 HWP_JANGPYEONG = TESTS_DIR / "test장평.hwp"
 HWPX_TEST = TESTS_DIR / "test.hwpx"
 OWPML_TEST = TESTS_DIR / "test.owpml"
@@ -74,12 +77,21 @@ def test_save_testTable_hwp_txt():
     assert out.stat().st_size >= 1
 
 
-@pytest.mark.skip(reason="test30.hwp: HWP 3.0 포맷 미지원 (추후 구현 예정)")
-def test_save_test30_hwp_txt():
-    """test30.hwp → txt 변환 저장"""
-    txt = hwp_to_txt(str(HWP_30))
+@pytest.mark.skipif(not HWP_10.exists(), reason=f"{HWP_10.name} 없음")
+def test_save_test10_hwp_txt():
+    """test10.hwp → txt 변환 저장"""
+    txt = hwp97_to_txt(str(HWP_10))
     assert isinstance(txt, str) and len(txt) >= 1
-    out = _save(HWP_30, "txt", txt)
+    out = _save(HWP_10, "txt", txt)
+    assert out.stat().st_size >= 1
+
+
+@pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
+def test_save_test97_hwp_txt():
+    """test97.hwp → txt 변환 저장"""
+    txt = hwp97_to_txt(str(HWP_97))
+    assert isinstance(txt, str) and len(txt) >= 1
+    out = _save(HWP_97, "txt", txt)
     assert out.stat().st_size >= 1
 
 
@@ -115,12 +127,21 @@ def test_save_testTable_hwp_md():
     assert out.stat().st_size >= 1
 
 
-@pytest.mark.skip(reason="test30.hwp: HWP 3.0 포맷 미지원 (추후 구현 예정)")
-def test_save_test30_hwp_md():
-    """test30.hwp → md 변환 저장"""
-    md = hwp_to_markdown(str(HWP_30))
+@pytest.mark.skipif(not HWP_10.exists(), reason=f"{HWP_10.name} 없음")
+def test_save_test10_hwp_md():
+    """test10.hwp → md 변환 저장"""
+    md = hwp97_to_markdown(str(HWP_10))
     assert isinstance(md, str) and len(md) >= 1
-    out = _save(HWP_30, "md", md)
+    out = _save(HWP_10, "md", md)
+    assert out.stat().st_size >= 1
+
+
+@pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
+def test_save_test97_hwp_md():
+    """test97.hwp → md 변환 저장"""
+    md = hwp97_to_markdown(str(HWP_97))
+    assert isinstance(md, str) and len(md) >= 1
+    out = _save(HWP_97, "md", md)
     assert out.stat().st_size >= 1
 
 
