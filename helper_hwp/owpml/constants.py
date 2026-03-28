@@ -87,22 +87,16 @@ class FieldType(str, Enum):
     TOTAL_PAGE = "TOTAL_PAGE"
 
 
-class ElementType(Enum):
-    """문서 요소 타입 (OWPML 기반)"""
-
-    PARAGRAPH = "paragraph"  # 문단
-    TABLE = "table"  # 표
-    PAGE_BREAK = "page_break"  # 쪽 나누기
-    PICTURE = "picture"  # 그림
-    FOOTNOTE = "footnote"  # 각주
-    ENDNOTE = "endnote"  # 미주
-    HYPERLINK = "hyperlink"  # 하이퍼링크
-    FIELD = "field"  # 필드
-    SECTION = "section"  # 섹션
-
-
-class IterMode(Enum):
-    """문서 순회 모드"""
-
-    SEQUENTIAL = "sequential"  # 문서 출현 순서 (기본)
-    STRUCTURED = "structured"  # Section → Paragraph 계층 구조
+# ---------------------------------------------------------------------------
+# 공통 외부 인터페이스 Enum (helper_hwp.constants 에서 re-export)
+#
+# 내부 파싱 태그(OwpmlTag, FieldType 등)와 분리하여
+# 외부 API는 포맷에 관계없이 동일한 ElementType / IterMode 를 사용합니다.
+#
+# owpml 내부 태그 → 외부 ElementType 매핑 예시:
+#   OwpmlTag.TBL ("tbl")          -> ElementType.TABLE
+#   OwpmlTag.P   ("p")            -> ElementType.PARAGRAPH
+#   OwpmlTag.FOOT_NOTE            -> ElementType.FOOTNOTE
+#   RawParagraph.is_page_break    -> ElementType.PAGE_BREAK
+# ---------------------------------------------------------------------------
+from helper_hwp.constants import ElementType, IterMode  # noqa: F401  (re-export)

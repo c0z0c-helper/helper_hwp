@@ -7,35 +7,35 @@ CFB (Compound File Binary) 기반 HWP 5.x 포맷 및 HWPX(OWPML) 포맷 지원
 주요 기능:
 - HWP 5.x 파일 구조 분석 및 파싱 (v50 모듈)
 - HWPX(OWPML) 파일 파싱 (owpml 모듈)
-- 파일 포맷 자동 감지 후 적합한 파서 선택 (open_auto)
+- HWP 97 (V3.00) 파일 파싱 (v97 모듈)
+- 파일 포맷 자동 감지 후 적합한 파서 선택 (open_hwp)
 - 텍스트, 표, 페이지 단위 추출
 - Markdown, Plain Text 변환 지원
-- 단위 변환 유틸리티 (HWPUNIT ↔ cm/inch/px)
+- 단위 변환 유틸리티 (HWPUNIT <-> cm/inch/px)
+
+외부 인터페이스 통일화:
+    세 포맷(v50 / v97 / owpml) 모두 동일한 ElementType, IterMode 를 사용합니다.
+    내부 파싱 태그(RecordTag, OwpmlTag, SpecialCharCode 등)와 외부 Enum 은 분리됩니다.
+
+    내부 태그 -> 외부 ElementType 매핑 예시:
+        v50  RecordTag.HWPTAG_TABLE (0x4D)         -> ElementType.TABLE
+        v97  SpecialCharCode.BOX (10) + TABLE(0)   -> ElementType.TABLE
+        owpml OwpmlTag.TBL ("tbl")                 -> ElementType.TABLE
 
 기본 사용법:
-    >>> from helper_hwp import open_hwp, hwp_to_txt, hwp_to_markdown
-    >>> from helper_hwp import open_auto, auto_to_txt, auto_to_markdown
+    >>> from helper_hwp import open_hwp, to_txt, to_md
+    >>> from helper_hwp import ElementType, IterMode
     >>>
-    >>> # HWP 5.0 문서 열기
-    >>> doc = open_hwp('example.hwp')
+    >>> # 포맷 자동 감지 (권장)
+    >>> doc = open_hwp('example.hwp')   # or .hwp97 or .hwpx
+    >>> for etype, elem in doc.iter_tags():
+    ...     if etype == ElementType.PARAGRAPH:
+    ...         print(elem.text)
+    ...     elif etype == ElementType.TABLE:
+    ...         print(f"표 {elem.rows}x{elem.cols}")
     >>>
-    >>> # HWPX 문서 열기
-    >>> from helper_hwp import open_hwpx, hwpx_to_txt, hwpx_to_markdown
-    >>> doc = open_hwpx('example.hwpx')
-    >>>
-    >>> # 포맷 자동 감지
-    >>> text = auto_to_txt('example.hwp')
-    >>> text = auto_to_txt('example.hwpx')
-
-주요 클래스:
-    - HwpDocument: HWP 5.0 문서 파싱 및 순회
-    - HwpxDocument: HWPX 문서 파싱 및 순회
-    - HwpFile: HWP 5.0 파일 구조 (CFB 스토리지)
-    - HwpxFile: HWPX 파일 구조 (ZIP/XML)
-
-상수:
-    - ElementType: 요소 타입 (PARAGRAPH, TABLE, PAGE)
-    - IterMode: 순회 모드 (SEQUENTIAL, STRUCTURED)
+    >>> text = to_txt('example.hwp')
+    >>> md   = to_md('example.hwpx')
 """
 
 import importlib.util
@@ -55,21 +55,24 @@ requirements_rnac = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(requirements_rnac)
 requirements_rnac.check_and_print_dependencies()
 
-from .v50.constants import ElementType, IterMode
+# ---------------------------------------------------------------------------
+# 공통 외부 인터페이스 Enum (세 포맷 공유)
+# ---------------------------------------------------------------------------
+from .constants import ElementType, IterMode
+
+# ---------------------------------------------------------------------------
+# HWP 5.0 (v50) API
+# ---------------------------------------------------------------------------
 from .v50.document_structure import HwpFile
 from .v50.models import Header, Version
 from .v50.parsed_elements import ParsedPage, ParsedParagraph, ParsedTable
-from .v50.parser import (
-    HwpDocument,
-    hwp_to_markdown,
-    hwp_to_md,
-    hwp_to_pdf,
-    hwp_to_txt,
-    open_hwp,
-)
+from .v50.parser import HwpDocument
+from .v50.parser import open_hwp as open_hwp_v50
 from .v50.utils import hwpunit_to_cm, hwpunit_to_inch, hwpunit_to_px
 
-# HWPX(OWPML) API
+# ---------------------------------------------------------------------------
+# HWPX (owpml) API
+# ---------------------------------------------------------------------------
 from .owpml.document_structure import HwpxFile
 from .owpml.models import HwpxVersion, HwpxHeader
 from .owpml.parsed_elements import (
@@ -77,98 +80,54 @@ from .owpml.parsed_elements import (
     ParsedParagraph as HwpxParsedParagraph,
     ParsedTable as HwpxParsedTable,
 )
-from .owpml.parser import (
-    HwpxDocument,
-    hwpx_to_markdown,
-    hwpx_to_md,
-    hwpx_to_txt,
-    open_hwpx,
-)
+from .owpml.parser import HwpxDocument, open_hwpx
 
-# 통합 자동 감지 API
+# ---------------------------------------------------------------------------
+# 포맷 자동 감지
+# ---------------------------------------------------------------------------
 from .detector import HwpFormat, detect_format
 
-# HWP 97 (V3.00) API
-from .v97.parser import (
-    Hwp97Document,
-    hwp97_to_markdown,
-    hwp97_to_md,
-    hwp97_to_txt,
-    open_hwp97,
-)
+# ---------------------------------------------------------------------------
+# HWP 97 (v97) API
+# ---------------------------------------------------------------------------
+from .v97.parser import Hwp97Document, open_hwp97
 
-
-def open_auto(file_path: str, iter_mode=None):
-    """
-    HWP/HWPX 파일을 포맷 자동 감지 후 적합한 Document 반환.
-
-    Args:
-        file_path: HWP 또는 HWPX 파일 경로
-        iter_mode: 순회 모드 (None이면 각 포맷 기본값 사용)
-
-    Returns:
-        HwpDocument (HWP 5.0) 또는 HwpxDocument (HWPX)
-
-    Raises:
-        ValueError: 지원하지 않는 파일 포맷
-    """
-    fmt = detect_format(file_path)
-    if fmt == HwpFormat.HWP_V10:
-        return open_hwp97(file_path)
-    if fmt == HwpFormat.HWP_V5:
-        return open_hwp(file_path, **({"iter_mode": iter_mode} if iter_mode else {}))
-    if fmt == HwpFormat.HWPX:
-        return open_hwpx(file_path, **({"iter_mode": iter_mode} if iter_mode else {}))
-    raise ValueError(f"지원하지 않는 파일 포맷입니다: {file_path}")
+# ---------------------------------------------------------------------------
+# 최상위 통합 변환 API (포맷 자동 dispatch)
+# ---------------------------------------------------------------------------
+from .converters import open_hwp, to_md, to_pdf, to_txt
 
 
 def auto_to_txt(file_path: str) -> str:
-    """
-    HWP/HWPX 파일에서 텍스트 추출 (포맷 자동 감지).
+    """HWP/HWPX 파일에서 텍스트 추출 (포맷 자동 감지).
 
-    Args:
-        file_path: HWP 또는 HWPX 파일 경로
-
-    Returns:
-        추출된 텍스트
+    .. deprecated::
+        to_txt() 사용을 권장합니다.
     """
-    fmt = detect_format(file_path)
-    if fmt == HwpFormat.HWP_V10:
-        return hwp97_to_txt(file_path)
-    if fmt == HwpFormat.HWP_V5:
-        return hwp_to_txt(file_path)
-    if fmt == HwpFormat.HWPX:
-        return hwpx_to_txt(file_path)
-    raise ValueError(f"지원하지 않는 파일 포맷입니다: {file_path}")
+    return to_txt(file_path)
 
 
 def auto_to_markdown(file_path: str) -> str:
-    """
-    HWP/HWPX 파일을 마크다운으로 변환 (포맷 자동 감지).
+    """HWP/HWPX 파일을 마크다운으로 변환 (포맷 자동 감지).
 
-    Args:
-        file_path: HWP 또는 HWPX 파일 경로
-
-    Returns:
-        마크다운 문자열
+    .. deprecated::
+        to_md() 사용을 권장합니다.
     """
-    fmt = detect_format(file_path)
-    if fmt == HwpFormat.HWP_V10:
-        return hwp97_to_markdown(file_path)
-    if fmt == HwpFormat.HWP_V5:
-        return hwp_to_markdown(file_path)
-    if fmt == HwpFormat.HWPX:
-        return hwpx_to_markdown(file_path)
-    raise ValueError(f"지원하지 않는 파일 포맷입니다: {file_path}")
+    return to_md(file_path)
 
 
 # 별칭
 auto_to_md = auto_to_markdown
 
 __all__ = [
-    # 상수
+    # 공통 외부 인터페이스 Enum (세 포맷 공유)
     "ElementType",
     "IterMode",
+    # 통합 API (포맷 자동 dispatch, 권장)
+    "open_hwp",
+    "to_txt",
+    "to_md",
+    "to_pdf",
     # HWP 5.0 모델
     "Version",
     "Header",
@@ -177,13 +136,9 @@ __all__ = [
     "ParsedParagraph",
     "ParsedTable",
     "ParsedPage",
-    # HWP 5.0 메인 API
+    # HWP 5.0 메인 API (v50 포맷 전용)
     "HwpDocument",
-    "open_hwp",
-    "hwp_to_txt",
-    "hwp_to_markdown",
-    "hwp_to_md",
-    "hwp_to_pdf",
+    "open_hwp_v50",
     # 유틸리티
     "hwpunit_to_cm",
     "hwpunit_to_inch",
@@ -198,22 +153,16 @@ __all__ = [
     # HWPX 메인 API
     "HwpxDocument",
     "open_hwpx",
-    "hwpx_to_txt",
-    "hwpx_to_markdown",
-    "hwpx_to_md",
-    # 포맷 자동 감지 API
+    # 포맷 자동 감지
     "HwpFormat",
     "detect_format",
-    "open_auto",
+    # 하위 호환 API (deprecated)
     "auto_to_txt",
     "auto_to_markdown",
     "auto_to_md",
     # HWP 97 (V3.00) API
     "Hwp97Document",
     "open_hwp97",
-    "hwp97_to_txt",
-    "hwp97_to_markdown",
-    "hwp97_to_md",
 ]
 
 __version__ = "0.5.5"

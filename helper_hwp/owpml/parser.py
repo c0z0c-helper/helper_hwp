@@ -234,35 +234,3 @@ def open_hwpx(file_path: str, iter_mode: IterMode = IterMode.SEQUENTIAL) -> Hwpx
             print(doc.to_text())
     """
     return HwpxDocument(file_path, iter_mode=iter_mode)
-
-
-def hwpx_to_txt(file_path: str) -> str:
-    """
-    HWPX 파일에서 텍스트 추출.
-
-    Args:
-        file_path: HWPX 파일 경로
-
-    Returns:
-        추출된 텍스트 문자열
-    """
-    doc = HwpxDocument(file_path)
-    return doc.to_text()
-
-
-def hwpx_to_markdown(file_path: str) -> str:
-    """
-    HWPX 파일을 마크다운으로 변환.
-
-    Args:
-        file_path: HWPX 파일 경로
-
-    Returns:
-        마크다운 문자열
-    """
-    doc = HwpxDocument(file_path)
-    return doc.to_markdown()
-
-
-# 별칭
-hwpx_to_md = hwpx_to_markdown

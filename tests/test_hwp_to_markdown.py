@@ -1,7 +1,7 @@
 """
 test_hwp_to_markdown.py
 
-hwp_to_markdown, hwpx_to_markdown, auto_to_markdown pytest 테스트.
+to_md, auto_to_markdown pytest 테스트.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from helper_hwp import auto_to_markdown, hwp_to_markdown, hwp97_to_markdown
+from helper_hwp import auto_to_markdown, to_md
 
 TESTS_DIR = Path(__file__).parent
 HWP_TEST = TESTS_DIR / "test.hwp"
@@ -26,24 +26,23 @@ HWPX_TEST = TESTS_DIR / "test.hwpx"
 
 @pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
 def test_hwp_to_markdown_returns_string():
-    """hwp_to_markdown: str 반환"""
-    result = hwp_to_markdown(str(HWP_TEST))
+    """to_md (hwp): str 반환"""
+    result = to_md(str(HWP_TEST))
     assert isinstance(result, str)
     assert len(result) >= 1
 
 
 @pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
 def test_hwp_to_markdown_contains_table():
-    """hwp_to_markdown: 표가 포함된 경우 마크다운 표 구문 포함"""
-    result = hwp_to_markdown(str(HWP_TEST))
-    # 표가 있으면 | 구분자가 등장해야 함
+    """to_md (hwp): 표가 포함된 경우 마크다운 표 구문 포함"""
+    result = to_md(str(HWP_TEST))
     assert "|" in result
 
 
 @pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
 def test_hwp_to_markdown_save_file(tmp_path):
-    """hwp_to_markdown: 결과를 파일로 저장 가능"""
-    result = hwp_to_markdown(str(HWP_TEST))
+    """to_md (hwp): 결과를 파일로 저장 가능"""
+    result = to_md(str(HWP_TEST))
     out = tmp_path / "output.md"
     out.write_text(result, encoding="utf-8")
     assert out.stat().st_size >= 1
@@ -57,7 +56,7 @@ def test_hwp_to_markdown_save_file(tmp_path):
 @pytest.mark.skipif(not HWP_TABLE.exists(), reason=f"{HWP_TABLE.name} 없음")
 def test_table_hwp_markdown_has_table_syntax():
     """testTable.hwp: 마크다운 표 구문 포함"""
-    result = hwp_to_markdown(str(HWP_TABLE))
+    result = to_md(str(HWP_TABLE))
     assert "|" in result
     assert "---" in result
 
@@ -90,21 +89,21 @@ def test_auto_to_markdown_hwpx():
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_markdown_returns_string():
-    """hwp97_to_markdown: str 반환"""
-    result = hwp97_to_markdown(str(HWP_97))
+    """to_md (hwp97): str 반환"""
+    result = to_md(str(HWP_97))
     assert isinstance(result, str)
     assert len(result) >= 1
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_markdown_no_garbage():
-    """hwp97_to_markdown: U+FFFD 깨진 문자 미포함"""
-    result = hwp97_to_markdown(str(HWP_97))
+    """to_md (hwp97): U+FFFD 깨진 문자 미포함"""
+    result = to_md(str(HWP_97))
     assert "\ufffd" not in result
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_markdown_contains_korean():
-    """hwp97_to_markdown: 한글 제안요청서 표지 내용 포함"""
-    result = hwp97_to_markdown(str(HWP_97))
+    """to_md (hwp97): 한글 제안요청서 표지 내용 포함"""
+    result = to_md(str(HWP_97))
     assert any(word in result for word in ["안 요 청 서", "사 업 명", "정보", "시스템"])

@@ -190,3 +190,17 @@ class PaperType(IntEnum):
     LEDGER = 12
     CUSTOM = 30
 
+
+# ---------------------------------------------------------------------------
+# 공통 외부 인터페이스 Enum (helper_hwp.constants 에서 re-export)
+#
+# 내부 파싱 코드(SpecialCharCode, BoxType 등)와 분리하여
+# 외부 API는 포맷에 관계없이 동일한 ElementType / IterMode 를 사용합니다.
+#
+# v97 내부 태그 → 외부 ElementType 매핑 예시:
+#   SpecialCharCode.BOX (10), BoxType.TABLE (0) -> ElementType.TABLE
+#   SpecialCharCode.PICTURE (11)                -> ElementType.PICTURE
+#   ParaFlag.PAGE_BREAK (0x02)                  -> ElementType.PAGE_BREAK
+#   (일반 문단)                                  -> ElementType.PARAGRAPH
+# ---------------------------------------------------------------------------
+from helper_hwp.constants import ElementType, IterMode  # noqa: F401  (re-export)

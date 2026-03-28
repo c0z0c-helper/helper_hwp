@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from helper_hwp import ElementType, IterMode, open_hwp, hwp97_to_txt
+from helper_hwp import ElementType, IterMode, open_hwp, to_txt
 
 TESTS_DIR = Path(__file__).parent
 HWP_TEST = TESTS_DIR / "test.hwp"
@@ -152,35 +152,35 @@ def test_jangpyeong_hwp_paragraphs():
 
 
 # ---------------------------------------------------------------------------
-# test97.hwp — HWP V3.00 (hwp97_to_txt 기반)
+# test97.hwp — HWP V3.00 (to_txt 통합 API 사용)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_txt_returns_string():
-    """hwp97_to_txt: str 반환"""
-    result = hwp97_to_txt(str(HWP_97))
+    """to_txt (hwp97): str 반환"""
+    result = to_txt(str(HWP_97))
     assert isinstance(result, str)
     assert len(result) >= 1
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_txt_no_garbage():
-    """hwp97_to_txt: U+FFFD 깨진 문자 미포함"""
-    result = hwp97_to_txt(str(HWP_97))
+    """to_txt (hwp97): U+FFFD 깨진 문자 미포함"""
+    result = to_txt(str(HWP_97))
     assert "\ufffd" not in result
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_txt_paragraph_count():
-    """hwp97_to_txt: 최소 100개 이상 줄 포함 (636 non-empty 기준)"""
-    result = hwp97_to_txt(str(HWP_97))
+    """to_txt (hwp97): 최소 100개 이상 줄 포함 (636 non-empty 기준)"""
+    result = to_txt(str(HWP_97))
     lines = [ln for ln in result.splitlines() if ln.strip()]
     assert len(lines) >= 100
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_txt_contains_cover_text():
-    """hwp97_to_txt: 표지 핵심 텍스트 포함"""
-    result = hwp97_to_txt(str(HWP_97))
+    """to_txt (hwp97): 표지 핵심 텍스트 포함"""
+    result = to_txt(str(HWP_97))
     assert "제 안 요 청 서" in result
