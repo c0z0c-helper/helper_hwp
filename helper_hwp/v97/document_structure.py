@@ -150,18 +150,26 @@ def _parse_box_after_ident(stream: BinaryIO) -> List[ParsedParagraph]:
     실측으로는 offset 76=박스 종류, offset 78=셀 개수 (스펙보다 2바이트 앞).
     cell_count가 0이면 (텍스트박스/수식 등) 문단리스트 1개만 파싱.
 
+    box_type > 3 이거나 cell_count > 256이면 렌더링 캐시 데이터로 간주하여 skip.
+
     Args:
         stream: 식별정보(8바이트) 이후 스트림
 
     Returns:
         표 안의 모든 셀 문단 리스트 (순서대로)
     """
+    pos_before = stream.tell()
     table_info = stream.read(84)
     if len(table_info) < 84:
         return []
 
-    box_type = struct.unpack_from("<H", table_info, 76)[0]
-    cell_count = struct.unpack_from("<H", table_info, 78)[0]
+    box_type = struct.unpack_from("<H", table_info, 78)[0]
+    cell_count = struct.unpack_from("<H", table_info, 80)[0]
+
+    # 비정상 값이면 렌더링 캐시로 간주 → 위치 복구 후 빈 목록 반환
+    if box_type > 3 or cell_count > 256:
+        stream.seek(pos_before)
+        return []
 
     # 셀 정보 (27 bytes × 셀수) skip
     stream.read(27 * cell_count)
@@ -227,16 +235,28 @@ def _parse_paragraph_list(
     """문단 리스트를 읽어 ParsedParagraph 리스트 반환.
 
     빈 문단(char_count=0)이 나오면 리스트 종료.
-    특수 문자(코드 10,11,14,15,16,17) 발견 시 스트림에서
-    추가 데이터를 읽어 파싱합니다.
+    char_count > _MAX_CC이면 렌더링 캐시 진입으로 판단하여 즉시 종료.
+    특수 문자(코드 10/11/14/15/16/17) 발견 시 스트림 직후 위치에서
+    추가 데이터를 읽어 태그 체인 방식으로 재귀 파싱합니다.
     """
     paragraphs: List[ParsedParagraph] = []
 
     while True:
+        pos_before = stream.tell()
         para = Paragraph.read_from_stream(stream)
         if para is None:
             break
         if para.is_empty:
+            break
+
+        # 렌더링 캐시 진입 감지 (두 가지 조건)
+        # 1) char_count가 비현실적으로 크면 중단
+        # 2) line_count=0이면서 char_count>0 → 렌더링 캐시 para (정상 para는 반드시 lc>=1)
+        if para.info.char_count > _MAX_CC:
+            stream.seek(pos_before)  # 잘못 읽은 위치 복구
+            break
+        if para.info.char_count > 0 and para.info.line_count == 0:
+            stream.seek(pos_before)  # 잘못 읽은 위치 복구
             break
 
         text = para.to_string()
@@ -259,23 +279,97 @@ def _parse_paragraph_list(
             )
         )
 
-        # 특수 문자(코드 10,11,14,15,16,17) 처리: 식별정보 이후 추가 데이터 읽기
-        for hc in para.chars:
-            if hc.code == SpecialCharCode.BOX:  # 10: 표/텍스트박스
-                cell_paras = _parse_box_after_ident(stream)
-                paragraphs.extend(cell_paras)
-            elif hc.code == SpecialCharCode.PICTURE:  # 11: 그림
-                _parse_picture_after_ident(stream)
-            elif hc.code == SpecialCharCode.LINE:  # 14: 선
-                _skip_line_after_ident(stream)
-            elif hc.code in (
-                SpecialCharCode.HIDDEN_COMMENT,  # 15
-                SpecialCharCode.HEADER_FOOTER,  # 16
-                SpecialCharCode.FOOTNOTE_ENDNOTE,  # 17
-            ):
-                _skip_para_list_special(stream, hc.code)
+        # 특수 문자(코드 10/11/14/15/16/17) 처리:
+        # read_hchars에서 식별 정보(8B)만 소비하고 종료했으므로
+        # 스트림 현재 위치가 해당 객체의 추가 데이터 시작점.
+        for hc in para.chars or []:
+            if hc.char_type.value == "special":
+                code = hc.code
+                if code == 10:  # 표/텍스트박스/수식
+                    inner = _parse_box_after_ident(stream)
+                    paragraphs.extend(inner)
+                elif code == 11:  # 그림
+                    _parse_picture_after_ident(stream)
+                elif code == 14:  # 선
+                    _skip_line_after_ident(stream)
+                elif code in (15, 16, 17):  # 숨은설명/머리말꼬리말/각주미주
+                    _skip_para_list_special(stream, code)
+                break  # 문단당 인라인 객체는 1개
 
     return paragraphs
+
+
+# ---------------------------------------------------------------------------
+# 렌더링 캐시 감지 임계값
+# ---------------------------------------------------------------------------
+
+_MAX_CC = 300  # 이 이상의 char_count는 렌더링 캐시 데이터로 간주
+
+# para list 시작 마커: follow_prev_shape=0, char_count>=1 의 특정 패턴
+# HWP97 para list 헤더의 앞 4바이트: 00 05 00 01 (follow=0, char_count=5, line_count=1)
+# 더 일반적: 첫 바이트 0x00, 두번째 1~300 (char_count), 세번째+네번째 line_count
+_PARA_LIST_MARKER = bytes([0x00, 0x05, 0x00, 0x01])
+
+
+def _find_all_para_list_starts(body: bytes, from_offset: int) -> List[int]:
+    """body[from_offset:] 에서 para list 시작 마커(00 05 00 01) 위치 모두 반환.
+
+    렌더링 캐시 진입 이전 범위만 탐색 (마지막 유효 마커 이후는 제외).
+    """
+    offsets: List[int] = []
+    pos = from_offset
+    while pos < len(body) - 4:
+        idx = body.find(_PARA_LIST_MARKER, pos)
+        if idx == -1:
+            break
+        offsets.append(idx)
+        pos = idx + 4
+    return offsets
+
+
+def _parse_all_body_lists(body_stream: BinaryIO) -> List[ParsedParagraph]:
+    """body_stream의 현재 위치부터 root para list + 이후 모든 para list 파싱.
+
+    HWP 97 (V3.00) body는:
+      1. root para list (스타일 직후, 문서 1페이지 포함)
+      2. 이후 연속 para list들 (나머지 페이지들)
+    각 para list는 마커(00 05 00 01)로 시작하며, 순차적으로 위치함.
+    """
+    # body_stream의 현재 위치 기록 (스타일 파싱 직후 = root list 시작)
+    root_start = body_stream.tell()
+    body_bytes = body_stream.read()  # 나머지 전체
+
+    all_paragraphs: List[ParsedParagraph] = []
+
+    # root para list 파싱
+    root_stream = io.BytesIO(body_bytes)
+    root_paras = _parse_paragraph_list(root_stream)
+    all_paragraphs.extend(root_paras)
+
+    # root list 종료 후 스트림 위치 파악
+    root_end_rel = root_stream.tell()  # body_bytes 내 상대 위치
+
+    # body_bytes 내 모든 para list 마커 위치 수집
+    para_starts = _find_all_para_list_starts(body_bytes, root_end_rel)
+
+    # 각 para list 순차 파싱 (이미 root의 재귀 파싱에서 처리된 것들은 건너뜀)
+    parsed_offsets: set = set()
+    for i, start in enumerate(para_starts):
+        if start in parsed_offsets:
+            continue
+
+        # 다음 마커까지를 최대 범위로 설정 (최대 64KB)
+        if i + 1 < len(para_starts):
+            max_size = min(para_starts[i + 1] - start, 65536)
+        else:
+            max_size = 65536
+
+        seg_stream = io.BytesIO(body_bytes[start : start + max_size])
+        seg_paras = _parse_paragraph_list(seg_stream)
+        all_paragraphs.extend(seg_paras)
+        parsed_offsets.add(start)
+
+    return all_paragraphs
 
 
 # ---------------------------------------------------------------------------
@@ -353,8 +447,9 @@ class Hwp97File:
         # 7. 스타일
         styles = _parse_styles(body_stream)
 
-        # 8. 문단 리스트
-        paragraphs = _parse_paragraph_list(body_stream)
+        # 8. 문단 리스트 (태그 체인 방식: 특수 코드 10/11/14/15/16/17 재귀 파싱)
+        #    root para list 파싱 후 body 나머지 영역의 추가 para list들도 순차 파싱
+        paragraphs = _parse_all_body_lists(body_stream)
 
         # 9. 추가 정보 블록 #1 (압축 영역 끝부분)
         extra_blocks: List[ExtraBlock] = []
@@ -391,4 +486,3 @@ class Hwp97File:
         if style_idx < len(self.styles):
             return self.styles[style_idx].name_str
         return ""
-

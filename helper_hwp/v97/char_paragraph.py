@@ -55,16 +55,37 @@ class HChar:
         HWP 97 (V3.00)의 내부 문자 코드(hchar)는 Johab(상용조합형) 2바이트 인코딩입니다.
         빅엔디언으로 2바이트를 구성하여 Johab으로 디코딩합니다.
         ASCII(0x20-0x7E) 범위는 코드 직접 변환합니다.
+        제어코드(0x00-0x1F)는 출력 불가 문자이므로 빈 문자열을 반환합니다.
+        Johab 디코딩 실패(U+FFFD) 또는 디코딩 결과가 제어문자이면 빈 문자열을 반환합니다.
+        유효한 Johab 2바이트 범위: 상위바이트 0x84~0xD3.
         """
         if self.char_type == HCharType.NORMAL:
+            if self.code < 0x20:
+                # NUL 및 제어코드 제거
+                return ""
             if self.code < 0x80:
                 return chr(self.code)
             # Johab 2바이트: 빅엔디언으로 패킹
+            # 유효한 Johab 상위바이트 범위: 0x84~0xD3
+            high_byte = (self.code >> 8) & 0xFF
+            if high_byte < 0x84:
+                # 유효하지 않은 Johab 범위 (렌더링 캐시 데이터 등)
+                return ""
             raw = struct.pack(">H", self.code)
             try:
-                return raw.decode("johab", errors="replace")
+                ch = raw.decode("johab", errors="replace")
+                # Johab 디코딩 실패(대체문자 U+FFFD) 제거
+                if ch == "\ufffd":
+                    return ""
+                # 디코딩 결과가 제어문자이면 제거
+                if len(ch) == 1 and ord(ch) < 0x20:
+                    return ""
+                # 멀티문자 결과에서 제어문자 포함시 제거
+                if any(ord(c) < 0x20 for c in ch):
+                    return ""
+                return ch
             except Exception:
-                return "?"
+                return ""
         elif self.char_type == HCharType.PARA_END:
             return "\n"
         elif self.char_type == HCharType.TAB:
@@ -215,14 +236,16 @@ def read_hchars(stream: BinaryIO, char_count: int) -> Iterator[HChar]:
         28: 64,  # 개요모양/번호 전체 = 64
         30: 4,  # 묶음빈칸: hchar(2)+hchar(2) = 4
         31: 4,  # 고정폭빈칸: hchar(2)+hchar(2) = 4
-        # 문단리스트 포함 코드: 식별정보 8바이트 = 4 hchar
-        10: 8,  # 표 식별정보: hchar(2)+dword(4)+hchar(2) = 8
-        11: 8,  # 그림 식별정보: hchar(2)+dword(4)+hchar(2) = 8
-        14: 8,  # 선 식별정보: hchar(2)+dword(4)+hchar(2) = 8
-        15: 8,  # 숨은설명 식별정보: hchar(2)+dword(4)+hchar(2) = 8
-        16: 8,  # 머리말/꼬리말 식별정보: hchar(2)+dword(4)+hchar(2) = 8
-        17: 8,  # 각주/미주 식별정보: hchar(2)+dword(4)+hchar(2) = 8
     }
+    # 문단 리스트를 포함하는 인라인 객체 코드.
+    # 식별 정보: hchar(2)+dword(4)+hchar(2) = 8B = 4 hchar.
+    # 식별 정보 소비 후 해당 객체의 추가 데이터(표 정보, 그림 정보 등)가
+    # hchar 스트림 밖에 별도로 이어진다. 따라서 식별 정보만 읽고
+    # read_count 를 char_count 로 강제 설정해 루프를 즉시 종료한다.
+    # (스펙 오프셋과 실측이 2B 어긋나는 케이스가 있으므로, 초과 소비를 방지)
+    _INLINE_OBJECT_CODES = {10, 11, 14, 15, 16, 17}
+    _INLINE_IDENT_EXTRA = 3  # hchar(2)+dword(4)+hchar(2) 중 첫 hchar 제외 = 3 hchar
+
     # 가변 길이 코드 (hchar(2)+dword n +hchar(2)+byte[n] 구조)
     # 전체 소비 hchar = 1(첫hchar) + 2(dword=4바이트) + 1(반복hchar) + n/2
     _VAR_CODES = {5, 29}  # 필드코드, 상호참조
@@ -240,6 +263,14 @@ def read_hchars(stream: BinaryIO, char_count: int) -> Iterator[HChar]:
 
         elif code == SpecialCharCode.PARA_END or code == 0:
             yield HChar(char_type=HCharType.PARA_END, code=code)
+
+        elif code in _INLINE_OBJECT_CODES:
+            # 식별 정보 나머지 (dword 4B + 반복 hchar 2B = 3 hchar) 소비
+            extra = stream.read(_INLINE_IDENT_EXTRA * 2)
+            read_count += _INLINE_IDENT_EXTRA
+            yield HChar(char_type=HCharType.SPECIAL, code=code, extra_data=extra)
+            # 객체 추가 데이터는 hchar 스트림 바깥에 있으므로 루프를 즉시 종료
+            read_count = char_count
 
         elif code in _TOTAL_SIZE:
             # 나머지 (total - 2) 바이트 = (total/2 - 1) 개의 hchar 읽기
@@ -302,18 +333,27 @@ class Paragraph:
 
     @property
     def is_empty(self) -> bool:
+        """문단 리스트 종료 마커 여부.
+
+        스펙 4.1: char_count == 0 이면 빈 문단 (문단 리스트의 끝).
+        line_count 값과 무관하게 char_count == 0 이면 종료 마커이다.
+        """
         return self.info.char_count == 0
 
     @classmethod
     def read_from_stream(cls, stream: BinaryIO) -> Optional["Paragraph"]:
         """스트림에서 문단 1개 읽기.
 
-        빈 문단(char_count=0)은 문단 리스트 끝을 의미하므로
+        char_count=0 AND line_count=0 인 문단이 리스트 끝 종료 마커입니다.
         is_empty를 확인하여 종료 처리해야 합니다.
         """
         info = ParaInfo.from_stream(stream)
         if info is None:
             return None
+
+        # char_count == 0 이면 리스트 종료 마커: 줄 정보/글자 모양/글자 없음
+        if info.char_count == 0:
+            return cls(info=info)
 
         # 줄 정보
         line_infos: List[LineInfo] = []
@@ -325,13 +365,11 @@ class Paragraph:
 
         # 글자 모양 정보 (has_char_shape != 0 일 때)
         char_shape_map: List[Tuple[int, Optional[CharShape]]] = []
-        if info.has_char_shape and info.char_count > 0:
+        if info.has_char_shape:
             char_shape_map = read_char_shapes(stream, info.char_count)
 
         # 글자들
-        chars: List[HChar] = []
-        if info.char_count > 0:
-            chars = list(read_hchars(stream, info.char_count))
+        chars = list(read_hchars(stream, info.char_count))
 
         return cls(
             info=info,
@@ -339,4 +377,3 @@ class Paragraph:
             char_shape_map=char_shape_map,
             chars=chars,
         )
-
