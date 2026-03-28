@@ -10,11 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from helper_hwp import auto_to_markdown, hwp_to_markdown
+from helper_hwp import auto_to_markdown, hwp_to_markdown, hwp97_to_markdown
 
 TESTS_DIR = Path(__file__).parent
 HWP_TEST = TESTS_DIR / "test.hwp"
 HWP_TABLE = TESTS_DIR / "testTable.hwp"
+HWP_97 = TESTS_DIR / "test97.hwp"
 HWPX_TEST = TESTS_DIR / "test.hwpx"
 
 
@@ -80,3 +81,30 @@ def test_auto_to_markdown_hwpx():
     result = auto_to_markdown(str(HWPX_TEST))
     assert isinstance(result, str)
     assert len(result) >= 1
+
+
+# ---------------------------------------------------------------------------
+# test97.hwp (HWP V3.00)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
+def test_hwp97_to_markdown_returns_string():
+    """hwp97_to_markdown: str 반환"""
+    result = hwp97_to_markdown(str(HWP_97))
+    assert isinstance(result, str)
+    assert len(result) >= 1
+
+
+@pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
+def test_hwp97_to_markdown_no_garbage():
+    """hwp97_to_markdown: U+FFFD 깨진 문자 미포함"""
+    result = hwp97_to_markdown(str(HWP_97))
+    assert "\ufffd" not in result
+
+
+@pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
+def test_hwp97_to_markdown_contains_korean():
+    """hwp97_to_markdown: 한글 제안요청서 표지 내용 포함"""
+    result = hwp97_to_markdown(str(HWP_97))
+    assert any(word in result for word in ["안 요 청 서", "사 업 명", "정보", "시스템"])

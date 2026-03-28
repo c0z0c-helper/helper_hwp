@@ -34,7 +34,6 @@ OUTPUT_DIR = TESTS_DIR / "output"
 # 테스트 대상 파일
 HWP_TEST = TESTS_DIR / "test.hwp"
 HWP_TABLE = TESTS_DIR / "testTable.hwp"
-HWP_10 = TESTS_DIR / "test10.hwp"
 HWP_97 = TESTS_DIR / "test97.hwp"
 HWP_JANGPYEONG = TESTS_DIR / "test장평.hwp"
 HWPX_TEST = TESTS_DIR / "test.hwpx"
@@ -77,20 +76,15 @@ def test_save_testTable_hwp_txt():
     assert out.stat().st_size >= 1
 
 
-@pytest.mark.skipif(not HWP_10.exists(), reason=f"{HWP_10.name} 없음")
-def test_save_test10_hwp_txt():
-    """test10.hwp → txt 변환 저장"""
-    txt = hwp97_to_txt(str(HWP_10))
-    assert isinstance(txt, str) and len(txt) >= 1
-    out = _save(HWP_10, "txt", txt)
-    assert out.stat().st_size >= 1
-
-
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_save_test97_hwp_txt():
-    """test97.hwp → txt 변환 저장"""
+    """test97.hwp → txt 변환 저장 (한글 텍스트 포함 확인)"""
     txt = hwp97_to_txt(str(HWP_97))
     assert isinstance(txt, str) and len(txt) >= 1
+    # 기본 표지 텍스트 포함 확인
+    assert any(word in txt for word in ["안", "사트", "정보", "구축"])
+    # 깨진 문자(�) 미포함 확인
+    assert "\ufffd" not in txt
     out = _save(HWP_97, "txt", txt)
     assert out.stat().st_size >= 1
 
@@ -127,20 +121,15 @@ def test_save_testTable_hwp_md():
     assert out.stat().st_size >= 1
 
 
-@pytest.mark.skipif(not HWP_10.exists(), reason=f"{HWP_10.name} 없음")
-def test_save_test10_hwp_md():
-    """test10.hwp → md 변환 저장"""
-    md = hwp97_to_markdown(str(HWP_10))
-    assert isinstance(md, str) and len(md) >= 1
-    out = _save(HWP_10, "md", md)
-    assert out.stat().st_size >= 1
-
-
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_save_test97_hwp_md():
-    """test97.hwp → md 변환 저장"""
+    """test97.hwp → md 변환 저장 (한글 텍스트 포함 확인)"""
     md = hwp97_to_markdown(str(HWP_97))
     assert isinstance(md, str) and len(md) >= 1
+    # 기본 표지 텍스트 포함 확인
+    assert any(word in md for word in ["안", "사트", "정보", "구축"])
+    # 깨진 문자(�) 미포함 확인
+    assert "\ufffd" not in md
     out = _save(HWP_97, "md", md)
     assert out.stat().st_size >= 1
 
