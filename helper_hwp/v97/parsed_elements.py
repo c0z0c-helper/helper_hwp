@@ -118,6 +118,20 @@ class ParsedTable:
                 grid[cell.row][cell.col] = cell.text
         return grid
 
+    def to_markdown(self) -> str:
+        """표를 마크다운 표 형식으로 변환."""
+        ct = self.cell_texts
+        if not ct:
+            return ""
+        cols = max(len(r) for r in ct)
+        lines = []
+        for row_idx, row in enumerate(ct):
+            padded = row + [""] * (cols - len(row))
+            cells = [c.replace("\n", " ").replace("|", "\\|").strip() for c in padded]
+            lines.append("| " + " | ".join(cells) + " |")
+            if row_idx == 0:
+                lines.append("| " + " | ".join(["---"] * cols) + " |")
+        return "\n".join(lines)
+
     def __repr__(self) -> str:
         return f"ParsedTable(box_type={self.box_type}, rows={self.rows}, cols={self.cols})"
-

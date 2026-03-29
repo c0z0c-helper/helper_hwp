@@ -15,7 +15,7 @@ import io
 import struct
 import zlib
 from dataclasses import dataclass, field
-from typing import BinaryIO, List, Optional, Union
+from typing import Any, BinaryIO, List, Optional, Union
 
 from .char_paragraph import HChar, HCharType, Paragraph
 from .constants import (
@@ -220,8 +220,22 @@ def _parse_box_after_ident(stream: BinaryIO) -> Optional[ParsedTable]:
                         flat_paras.append(ParsedParagraph(text=text))
         cells.append(TableCell(row=row_idx, col=col_idx, paragraphs=flat_paras))
 
-    # 캡션 문단리스트 (항상 존재, 빈 문단으로 끝남)
-    _parse_paragraph_list(stream)  # 캡션은 수집하지 않음
+    # 캡션 문단리스트: 존재 여부를 peek으로 검증 후 파싱
+    # follow_prev(1) + char_count(2) + line_count(2) + has_cs(1) = 6 바이트
+    cap_peek = stream.read(6)
+    if len(cap_peek) == 6:
+        fp = cap_peek[0]
+        cc = struct.unpack_from("<H", cap_peek, 1)[0]
+        lc = struct.unpack_from("<H", cap_peek, 3)[0]
+        hcs = cap_peek[5]
+        # 유효한 para info 헤더 조건
+        valid_cap = fp in (0, 1) and cc <= _MAX_CC and lc <= 200 and hcs <= 1
+        if valid_cap:
+            # 6바이트를 되돌리고 _parse_paragraph_list로 소비
+            stream.seek(-6, 1)
+            _parse_paragraph_list(stream)  # 캡션은 수집하지 않음
+        # valid_cap이 False면 렌더링 캐시 데이터 → 캡션 없음, 6바이트 소비 후 복귀
+        # (이미 6바이트를 read()로 소비했으므로 복구 없이 그대로 진행)
 
     return ParsedTable(
         box_type=box_type,
@@ -325,6 +339,7 @@ def _parse_paragraph_list(
         # 특수 문자(코드 10/11/14/15/16/17) 처리:
         # read_hchars에서 식별 정보(8B)만 소비하고 종료했으므로
         # 스트림 현재 위치가 해당 객체의 추가 데이터 시작점.
+        should_end_list = False
         for hc in para.chars or []:
             if hc.char_type.value == "special":
                 code = hc.code
@@ -332,6 +347,8 @@ def _parse_paragraph_list(
                     parsed_table = _parse_box_after_ident(stream)
                     if parsed_table is not None:
                         paragraphs.append(parsed_table)
+                    # 표 파싱 후 이 para list는 종료: 다음 본문은 별도 para list
+                    should_end_list = True
                 elif code == 11:  # 그림
                     _parse_picture_after_ident(stream)
                 elif code == 14:  # 선
@@ -339,6 +356,8 @@ def _parse_paragraph_list(
                 elif code in (15, 16, 17):  # 숨은설명/머리말꼬리말/각주미주
                     _skip_para_list_special(stream, code)
                 break  # 문단당 인라인 객체는 1개
+        if should_end_list:
+            break
 
     return paragraphs
 
@@ -349,69 +368,120 @@ def _parse_paragraph_list(
 
 _MAX_CC = 300  # 이 이상의 char_count는 렌더링 캐시 데이터로 간주
 
-# para list 시작 마커: follow_prev_shape=0, char_count>=1 의 특정 패턴
-# HWP97 para list 헤더의 앞 4바이트: 00 05 00 01 (follow=0, char_count=5, line_count=1)
-# 더 일반적: 첫 바이트 0x00, 두번째 1~300 (char_count), 세번째+네번째 line_count
-_PARA_LIST_MARKER = bytes([0x00, 0x05, 0x00, 0x01])
 
+def _find_next_para_list_start(body: bytes, start: int, max_scan: int = 10000) -> int:
+    """body[start:start+max_scan] 범위에서 유효한 para list 시작 오프셋을 탐색.
 
-def _find_all_para_list_starts(body: bytes, from_offset: int) -> List[int]:
-    """body[from_offset:] 에서 para list 시작 마커(00 05 00 01) 위치 모두 반환.
+    para info 헤더 조건:
+      - follow_prev_shape (1byte): 0 또는 1
+      - char_count (2byte, LE): 1 ~ _MAX_CC
+      - line_count (2byte, LE): 1 ~ 200
+      - has_char_shape (1byte): 0 또는 1
 
-    렌더링 캐시 진입 이전 범위만 탐색 (마지막 유효 마커 이후는 제외).
+    Returns:
+        유효한 오프셋 (절대 인덱스), 없으면 -1
     """
-    offsets: List[int] = []
-    pos = from_offset
-    while pos < len(body) - 4:
-        idx = body.find(_PARA_LIST_MARKER, pos)
-        if idx == -1:
-            break
-        offsets.append(idx)
-        pos = idx + 4
-    return offsets
+    end = min(start + max_scan, len(body) - 43)
+    pos = start
+    while pos < end:
+        follow = body[pos]
+        if follow > 1:
+            pos += 1
+            continue
+        char_count = struct.unpack_from("<H", body, pos + 1)[0]
+        if not (1 <= char_count <= _MAX_CC):
+            pos += 1
+            continue
+        line_count = struct.unpack_from("<H", body, pos + 3)[0]
+        if not (1 <= line_count <= 200):
+            pos += 1
+            continue
+        has_cs = body[pos + 5]
+        if has_cs > 1:
+            pos += 1
+            continue
+        return pos
+    return -1
+
+
+def _is_valid_text(text: str, char_shape: Optional[Any] = None) -> bool:
+    """파싱된 텍스트가 유효한 본문 텍스트인지 검증.
+
+    다음 경우 무효로 판정:
+    1. U+FFFD(대체 문자) 포함: 잘못된 Johab 디코딩
+    2. 텍스트 길이 > 3이고 개행 비율 50% 초과: 렌더링 캐시 잡음
+    3. CharShape.attr == 255 (모든 비트 1): 렌더링 캐시 데이터의 garbage CharShape
+    """
+    if "\ufffd" in text:
+        return False
+    # 개행 비율 검사: 실제 텍스트보다 \n이 절반 이상이면 쓰레기 데이터
+    if len(text) > 3:
+        newline_ratio = text.count("\n") / len(text)
+        if newline_ratio > 0.5:
+            return False
+    # CharShape 유효성: attr=255는 렌더링 캐시 데이터
+    if char_shape is not None and getattr(char_shape, "attr", 0) == 255:
+        return False
+    return True
 
 
 def _parse_all_body_lists(body_stream: BinaryIO) -> List[Union[ParsedParagraph, ParsedTable]]:
     """body_stream의 현재 위치부터 root para list + 이후 모든 para list 파싱.
 
     HWP 97 (V3.00) body는:
-      1. root para list (스타일 직후, 문서 1페이지 포함)
-      2. 이후 연속 para list들 (나머지 페이지들)
-    각 para list는 마커(00 05 00 01)로 시작하며, 순차적으로 위치함.
+      1. root para list (스타일 직후, 1페이지 포함)
+      2. 렌더링 캐시 데이터 (가변 크기, 건너뜀)
+      3. 이후 추가 para list들 (나머지 페이지들)
+
+    para list 종료 마커(char_count=0) 이후 나오는 렌더링 캐시 데이터를
+    유효한 para info 헤더 패턴으로 스캔하여 다음 para list 시작점을 탐색합니다.
     """
-    # body_stream의 현재 위치 기록 (스타일 파싱 직후 = root list 시작)
     root_start = body_stream.tell()
-    body_bytes = body_stream.read()  # 나머지 전체
+    body_bytes = body_stream.read()  # 나머지 전체 (root_start 이후)
 
     all_paragraphs: List[Union[ParsedParagraph, ParsedTable]] = []
 
     # root para list 파싱
     root_stream = io.BytesIO(body_bytes)
     root_paras = _parse_paragraph_list(root_stream)
-    all_paragraphs.extend(root_paras)
+    for para in root_paras:
+        if isinstance(para, ParsedParagraph):
+            if _is_valid_text(para.text, para.char_shape):
+                all_paragraphs.append(para)
+        else:
+            all_paragraphs.append(para)
+    current_end = root_stream.tell()  # body_bytes 내 상대 위치
 
-    # root list 종료 후 스트림 위치 파악
-    root_end_rel = root_stream.tell()  # body_bytes 내 상대 위치
-
-    # body_bytes 내 모든 para list 마커 위치 수집
-    para_starts = _find_all_para_list_starts(body_bytes, root_end_rel)
-
-    # 각 para list 순차 파싱 (이미 root의 재귀 파싱에서 처리된 것들은 건너뜀)
-    parsed_offsets: set = set()
-    for i, start in enumerate(para_starts):
-        if start in parsed_offsets:
+    # 순차적으로 다음 para list를 스캔하여 파싱
+    # 최대 반복 수를 제한하여 무한루프 방지
+    MAX_ITER = 2000
+    iteration = 0
+    while iteration < MAX_ITER and current_end < len(body_bytes) - 43:
+        iteration += 1
+        next_start = _find_next_para_list_start(body_bytes, current_end, max_scan=20000)
+        if next_start < 0:
+            # 20KB 범위에서 못 찾으면 큰 단위로 건너뜀
+            current_end += 20000
             continue
 
-        # 다음 마커까지를 최대 범위로 설정 (최대 64KB)
-        if i + 1 < len(para_starts):
-            max_size = min(para_starts[i + 1] - start, 65536)
-        else:
-            max_size = 65536
-
-        seg_stream = io.BytesIO(body_bytes[start : start + max_size])
+        seg_stream = io.BytesIO(body_bytes[next_start:])
         seg_paras = _parse_paragraph_list(seg_stream)
-        all_paragraphs.extend(seg_paras)
-        parsed_offsets.add(start)
+        seg_end = seg_stream.tell()
+
+        if seg_end <= 0 or next_start + seg_end <= current_end:
+            # 진전이 없으면 1바이트 전진
+            current_end = next_start + 1
+            continue
+
+        # 유효한 텍스트만 포함된 문단만 추가
+        for para in seg_paras:
+            if isinstance(para, ParsedParagraph):
+                if _is_valid_text(para.text, para.char_shape):
+                    all_paragraphs.append(para)
+            else:
+                all_paragraphs.append(para)
+
+        current_end = next_start + seg_end
 
     return all_paragraphs
 

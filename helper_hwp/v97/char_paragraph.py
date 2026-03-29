@@ -347,6 +347,7 @@ class Paragraph:
         char_count=0 AND line_count=0 인 문단이 리스트 끝 종료 마커입니다.
         is_empty를 확인하여 종료 처리해야 합니다.
         """
+        pos_start = stream.tell()
         info = ParaInfo.from_stream(stream)
         if info is None:
             return None
@@ -354,6 +355,13 @@ class Paragraph:
         # char_count == 0 이면 리스트 종료 마커: 줄 정보/글자 모양/글자 없음
         if info.char_count == 0:
             return cls(info=info)
+
+        # line_count가 비정상적으로 크면 렌더링 캐시 데이터로 판단하여 중단.
+        # _find_next_para_list_start의 기준(200)과 동일하게 적용.
+        _MAX_LC = 200
+        if info.line_count > _MAX_LC:
+            stream.seek(pos_start)  # para info 시작 위치로 복구
+            return None
 
         # 줄 정보
         line_infos: List[LineInfo] = []
