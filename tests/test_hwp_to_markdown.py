@@ -17,6 +17,7 @@ HWP_TEST = TESTS_DIR / "test.hwp"
 HWP_TABLE = TESTS_DIR / "testTable.hwp"
 HWP_97 = TESTS_DIR / "test97.hwp"
 HWPX_TEST = TESTS_DIR / "test.hwpx"
+OWPML_TEST = TESTS_DIR / "test.owpml"
 
 
 # ---------------------------------------------------------------------------
@@ -107,3 +108,36 @@ def test_hwp97_to_markdown_contains_korean():
     """to_md (hwp97): 한글 제안요청서 표지 내용 포함"""
     result = to_md(str(HWP_97))
     assert any(word in result for word in ["안 요 청 서", "사 업 명", "정보", "시스템"])
+
+
+# ---------------------------------------------------------------------------
+# HWPX 표 마크다운 형식 (v50 기준 동일 포맷 확인)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not HWPX_TEST.exists(), reason=f"{HWPX_TEST.name} 없음")
+def test_hwpx_to_markdown_contains_table():
+    """to_md (hwpx): 표가 마크다운 표 형식 (|, ---) 으로 포함"""
+    result = to_md(str(HWPX_TEST))
+    assert "|" in result
+    assert "---" in result
+
+
+# ---------------------------------------------------------------------------
+# OWPML 표 마크다운 형식 (v50 기준 동일 포맷 확인)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not OWPML_TEST.exists(), reason=f"{OWPML_TEST.name} 없음")
+def test_owpml_to_markdown_contains_table():
+    """auto_to_markdown (owpml): 표가 마크다운 표 형식 (|, ---) 으로 포함"""
+    result = auto_to_markdown(str(OWPML_TEST))
+    assert "|" in result
+    assert "---" in result
+
+
+@pytest.mark.skipif(not OWPML_TEST.exists(), reason=f"{OWPML_TEST.name} 없음")
+def test_owpml_to_markdown_no_inline_table_marker():
+    """auto_to_markdown (owpml): '[표:' 인라인 마커가 없어야 함"""
+    result = auto_to_markdown(str(OWPML_TEST))
+    assert "[표:" not in result

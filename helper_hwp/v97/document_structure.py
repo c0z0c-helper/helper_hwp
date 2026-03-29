@@ -15,7 +15,7 @@ import io
 import struct
 import zlib
 from dataclasses import dataclass, field
-from typing import BinaryIO, List, Optional
+from typing import BinaryIO, List, Optional, Union
 
 from .char_paragraph import HChar, HCharType, Paragraph
 from .constants import (
@@ -141,7 +141,7 @@ def _parse_table_from_extra(extra_data: bytes) -> Optional[ParsedTable]:
 # ---------------------------------------------------------------------------
 
 
-def _parse_box_after_ident(stream: BinaryIO) -> List[ParsedParagraph]:
+def _parse_box_after_ident(stream: BinaryIO) -> Optional[ParsedTable]:
     """코드 10 식별정보 이후의 표/텍스트박스 내용 파싱.
 
     표 정보 (84 bytes) → 셀 정보 (27 bytes × 셀수) → 각 셀 문단리스트 × 셀수 → 캡션 문단리스트
@@ -156,37 +156,79 @@ def _parse_box_after_ident(stream: BinaryIO) -> List[ParsedParagraph]:
         stream: 식별정보(8바이트) 이후 스트림
 
     Returns:
-        표 안의 모든 셀 문단 리스트 (순서대로)
+        ParsedTable (box_type=0이면 표, 이외는 텍스트박스 등), 오류 시 None
     """
     pos_before = stream.tell()
     table_info = stream.read(84)
     if len(table_info) < 84:
-        return []
+        return None
 
     box_type = struct.unpack_from("<H", table_info, 78)[0]
     cell_count = struct.unpack_from("<H", table_info, 80)[0]
 
-    # 비정상 값이면 렌더링 캐시로 간주 → 위치 복구 후 빈 목록 반환
+    # 비정상 값이면 렌더링 캐시로 간주 → 위치 복구 후 None 반환
     if box_type > 3 or cell_count > 256:
         stream.seek(pos_before)
-        return []
+        return None
 
-    # 셀 정보 (27 bytes × 셀수) skip
-    stream.read(27 * cell_count)
+    # 셀 정보 (27 bytes × 셀수) 읽어 x/y 위치로 row/col 역산
+    # 셀 정보 layout: [0~1: 예약(2)] [2~3: color(2)] [4~5: x(2)] [6~7: y(2)] ...
+    CellInfo = tuple  # (x, y)
+    cell_positions: List[CellInfo] = []
+    for _ in range(cell_count):
+        cell_raw = stream.read(27)
+        if len(cell_raw) >= 8:
+            x = struct.unpack_from("<H", cell_raw, 4)[0]
+            y = struct.unpack_from("<H", cell_raw, 6)[0]
+            cell_positions.append((x, y))
+        else:
+            cell_positions.append((0, 0))
+
+    # x/y 좌표를 정렬하여 행/열 인덱스 매핑
+    unique_ys = sorted(set(p[1] for p in cell_positions))
+    unique_xs = sorted(set(p[0] for p in cell_positions))
+    y_to_row = {y: i for i, y in enumerate(unique_ys)}
+    x_to_col = {x: i for i, x in enumerate(unique_xs)}
+
+    # 행/열 수
+    max_row = len(unique_ys) if unique_ys else 1
+    max_col = len(unique_xs) if unique_xs else 1
 
     # 셀 개수가 0이면 텍스트박스/수식 등: 문단리스트 1개만 존재
     actual_count = cell_count if cell_count > 0 else 1
 
-    # 각 셀(또는 내부)의 문단리스트 파싱 (재귀)
-    all_paras: List[ParsedParagraph] = []
-    for _ in range(actual_count):
+    # 각 셀의 문단리스트 파싱 (재귀)
+    cells: List[TableCell] = []
+    for i in range(actual_count):
         cell_paras = _parse_paragraph_list(stream)
-        all_paras.extend(cell_paras)
+        if i < len(cell_positions):
+            x, y = cell_positions[i]
+            row_idx = y_to_row.get(y, 0)
+            col_idx = x_to_col.get(x, 0)
+        else:
+            row_idx, col_idx = 0, i
+        # ParsedParagraph만 셀에 담음 (중첩 표는 텍스트 평탄화)
+        flat_paras: List[ParsedParagraph] = []
+        for item in cell_paras:
+            if isinstance(item, ParsedParagraph):
+                flat_paras.append(item)
+            elif isinstance(item, ParsedTable):
+                # 중첩 표: 셀 텍스트를 탭 구분 문자열로 평탄화
+                for trow in item.cell_texts:
+                    text = "\t".join(trow)
+                    if text.strip():
+                        flat_paras.append(ParsedParagraph(text=text))
+        cells.append(TableCell(row=row_idx, col=col_idx, paragraphs=flat_paras))
 
     # 캡션 문단리스트 (항상 존재, 빈 문단으로 끝남)
     _parse_paragraph_list(stream)  # 캡션은 수집하지 않음
 
-    return all_paras
+    return ParsedTable(
+        box_type=box_type,
+        rows=max_row,
+        cols=max_col,
+        cells=cells,
+    )
 
 
 def _parse_picture_after_ident(stream: BinaryIO) -> None:
@@ -231,15 +273,16 @@ def _skip_line_after_ident(stream: BinaryIO) -> None:
 
 def _parse_paragraph_list(
     stream: BinaryIO,
-) -> List[ParsedParagraph]:
-    """문단 리스트를 읽어 ParsedParagraph 리스트 반환.
+) -> List[Union[ParsedParagraph, ParsedTable]]:
+    """문단 리스트를 읽어 ParsedParagraph/ParsedTable 혼합 리스트 반환.
 
     빈 문단(char_count=0)이 나오면 리스트 종료.
     char_count > _MAX_CC이면 렌더링 캐시 진입으로 판단하여 즉시 종료.
     특수 문자(코드 10/11/14/15/16/17) 발견 시 스트림 직후 위치에서
     추가 데이터를 읽어 태그 체인 방식으로 재귀 파싱합니다.
+    코드 10(표/텍스트박스)은 ParsedTable 으로 반환됩니다.
     """
-    paragraphs: List[ParsedParagraph] = []
+    paragraphs: List[Union[ParsedParagraph, ParsedTable]] = []
 
     while True:
         pos_before = stream.tell()
@@ -286,8 +329,9 @@ def _parse_paragraph_list(
             if hc.char_type.value == "special":
                 code = hc.code
                 if code == 10:  # 표/텍스트박스/수식
-                    inner = _parse_box_after_ident(stream)
-                    paragraphs.extend(inner)
+                    parsed_table = _parse_box_after_ident(stream)
+                    if parsed_table is not None:
+                        paragraphs.append(parsed_table)
                 elif code == 11:  # 그림
                     _parse_picture_after_ident(stream)
                 elif code == 14:  # 선
@@ -327,7 +371,7 @@ def _find_all_para_list_starts(body: bytes, from_offset: int) -> List[int]:
     return offsets
 
 
-def _parse_all_body_lists(body_stream: BinaryIO) -> List[ParsedParagraph]:
+def _parse_all_body_lists(body_stream: BinaryIO) -> List[Union[ParsedParagraph, ParsedTable]]:
     """body_stream의 현재 위치부터 root para list + 이후 모든 para list 파싱.
 
     HWP 97 (V3.00) body는:
@@ -339,7 +383,7 @@ def _parse_all_body_lists(body_stream: BinaryIO) -> List[ParsedParagraph]:
     root_start = body_stream.tell()
     body_bytes = body_stream.read()  # 나머지 전체
 
-    all_paragraphs: List[ParsedParagraph] = []
+    all_paragraphs: List[Union[ParsedParagraph, ParsedTable]] = []
 
     # root para list 파싱
     root_stream = io.BytesIO(body_bytes)
@@ -399,7 +443,7 @@ class Hwp97File:
     info_blocks: List[InfoBlock] = field(default_factory=list)
     font_names: List[List[str]] = field(default_factory=list)
     styles: List[StyleEntry] = field(default_factory=list)
-    paragraphs: List[ParsedParagraph] = field(default_factory=list)
+    paragraphs: List[Union[ParsedParagraph, ParsedTable]] = field(default_factory=list)
     extra_blocks: List[ExtraBlock] = field(default_factory=list)
     extra_blocks2: List[ExtraBlock] = field(default_factory=list)
 

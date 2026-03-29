@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from .document_structure import Hwp97File
 
-from .parsed_elements import ParsedParagraph
+from .parsed_elements import ParsedParagraph, ParsedTable
 
 
 # ---------------------------------------------------------------------------
@@ -25,11 +25,15 @@ def convert_to_text(hwp: "Hwp97File") -> str:
         hwp: Hwp97File 파싱 결과
 
     Returns:
-        줄바꿈으로 문단 구분된 텍스트
+        줄바꾸으로 문단 구분된 텍스트
     """
     lines: List[str] = []
     for para in hwp.paragraphs:
-        lines.append(para.text)
+        if isinstance(para, ParsedTable):
+            for row in para.cell_texts:
+                lines.append("\t".join(row))
+        else:
+            lines.append(para.text)
     return "\n".join(lines)
 
 
@@ -87,6 +91,14 @@ def convert_to_markdown(hwp: "Hwp97File") -> str:
     md_lines: List[str] = []
 
     for para in hwp.paragraphs:
+        if isinstance(para, ParsedTable):
+            cell_texts = para.cell_texts
+            if cell_texts:
+                table_md = _create_markdown_table(cell_texts)
+                md_lines.append(table_md)
+                md_lines.append("")
+            continue
+
         text = para.text.strip()
         if not text:
             md_lines.append("")
@@ -116,4 +128,3 @@ def convert_to_markdown(hwp: "Hwp97File") -> str:
             prev_blank = False
 
     return "\n".join(result)
-
