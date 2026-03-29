@@ -181,26 +181,30 @@ class HwpxDocument:
     # ------------------------------------------------------------------
 
     def to_text(self) -> str:
-        """전체 텍스트 추출 (표는 탭 구분 텍스트)"""
+        """전체 텍스트 추출 (표는 v50과 동일하게 탭 구분 행 텍스트)"""
         lines: List[str] = []
         for etype, elem in self.iter_tags():
             if etype == ElementType.PARAGRAPH:
                 if elem.text:
                     lines.append(elem.text)
             elif etype == ElementType.TABLE:
-                lines.append(elem.to_text())
+                t = elem.to_text()
+                if t:
+                    lines.append(t)
         return "\n".join(lines)
 
     def to_markdown(self) -> str:
-        """마크다운 변환 (표는 마크다운 표 형식)"""
-        lines: List[str] = []
+        """마크다운 변환 (표는 v50과 동일하게 마크다운 표 형식)"""
+        parts: List[str] = []
         for etype, elem in self.iter_tags():
             if etype == ElementType.PARAGRAPH:
                 if elem.text:
-                    lines.append(elem.text)
+                    parts.append(elem.text)
             elif etype == ElementType.TABLE:
-                lines.append(elem.to_markdown())
-        return "\n\n".join(lines)
+                md = elem.to_markdown()
+                if md:
+                    parts.append(md)
+        return "\n\n".join(parts)
 
     # ------------------------------------------------------------------
     # context manager

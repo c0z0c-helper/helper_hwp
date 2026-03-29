@@ -136,8 +136,8 @@ class _SectionParser:
     def _walk(self, elem: ET.Element, section: RawSection) -> None:
         tag = _local(elem.tag)
         if tag == OwpmlTag.P:
-            para = self._parse_paragraph(elem)
-            section.paragraphs.append(para)
+            # hp:p 내부에 hp:tbl 이 있으면 문단과 표를 분리해서 이벤트로 추가
+            self._parse_paragraph_with_tables(elem, section)
         elif tag == OwpmlTag.TBL:
             tbl = self._parse_table(elem)
             section.tables.append(tbl)
@@ -146,6 +146,34 @@ class _SectionParser:
         else:
             for child in elem:
                 self._walk(child, section)
+
+    def _parse_paragraph_with_tables(self, p_elem: ET.Element, section: RawSection) -> None:
+        """hp:p 요소를 파싱하되 내부 hp:tbl은 별도 RawTable 이벤트로 분리한다.
+
+        OWPML 에서는 표가 hp:run 자식으로 hp:p 안에 포함되는 경우가 있다.
+        이 경우 기존에는 인라인 '[표: ...]' 텍스트로 처리했는데,
+        v50 기준과 맞추기 위해 별도 이벤트로 분리한다.
+        """
+        # 먼저 일반 텍스트 문단 파싱 (tbl 제외)
+        para = self._parse_paragraph(p_elem)
+        if para.runs:  # 텍스트가 있으면 문단 추가
+            section.paragraphs.append(para)
+        else:
+            # 텍스트 없는 문단은 sentinel 후보 — 하지만 tbl이 있으면 아래에서 처리
+            pass
+
+        # p 내부의 tbl을 찾아서 별도 이벤트로 추가
+        for child in p_elem.iter():
+            if _local(child.tag) == OwpmlTag.TBL:
+                tbl = self._parse_table(child)
+                section.tables.append(tbl)
+                section.paragraphs.append(RawParagraph())  # sentinel
+
+        # 텍스트가 없고 내부 tbl도 없었으면 빈 문단 추가 (줄간격 보존)
+        if not para.runs:
+            has_tbl = any(_local(c.tag) == OwpmlTag.TBL for c in p_elem.iter())
+            if not has_tbl:
+                section.paragraphs.append(RawParagraph())
 
     def _parse_paragraph(self, p_elem: ET.Element) -> RawParagraph:
         para = RawParagraph()
@@ -162,11 +190,8 @@ class _SectionParser:
             # 부모 run 요소의 charPrIDRef 접근은 재귀 한 단계 위에서 처리
             para.runs.append(run)
         elif tag == OwpmlTag.TBL:
-            # 문단 내 중첩 표: 텍스트로 인라인 처리
-            tbl = self._parse_table(elem)
-            if tbl.cells:
-                inline = " ".join(c.text.replace("\n", " ") for c in tbl.cells if c.text)
-                para.runs.append(RawRun(text=f"[표: {inline}]"))
+            # 표는 _parse_paragraph_with_tables 에서 별도 이벤트로 처리됨 → 여기서는 무시
+            pass
         elif tag in (OwpmlTag.FOOT_NOTE, OwpmlTag.END_NOTE):
             # 각주/미주 내용은 별도로 수집하지 않고 표시자만 추가
             pass
