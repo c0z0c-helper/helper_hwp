@@ -178,7 +178,7 @@ def to_txt(file_path: Union[str, Path]) -> str:
             text = getattr(elem, "text", "") or ""
             if text.strip():
                 lines.append(text)
-        elif etype == ElementType.TABLE:
+        elif etype in (ElementType.TABLE, ElementType.EQUATION, ElementType.SHAPE):
             table_text = getattr(elem, "to_text", None)
             if callable(table_text):
                 t = table_text()

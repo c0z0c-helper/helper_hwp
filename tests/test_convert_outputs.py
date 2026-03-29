@@ -21,6 +21,7 @@ from helper_hwp import (
     auto_to_markdown,
     auto_to_txt,
     to_md,
+    to_pdf,
     to_txt,
 )
 
@@ -47,6 +48,23 @@ def _save(src: Path, ext: str, content: str) -> Path:
     out = OUTPUT_DIR / f"{src.name}.{ext}"
     out.write_text(content, encoding="utf-8")
     return out
+
+
+def _save_pdf(src: Path) -> Path:
+    """OUTPUT_DIR/<원본파일명>.pdf 로 변환·저장 후 경로 반환"""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    out = OUTPUT_DIR / f"{src.name}.pdf"
+    to_pdf(str(src), str(out))
+    return out
+
+
+def _has_playwright() -> bool:
+    try:
+        import playwright  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -184,3 +202,38 @@ def test_save_test_owpml_md():
     assert isinstance(md, str) and len(md) >= 1
     out = _save(OWPML_TEST, "md", md)
     assert out.stat().st_size >= 1
+
+
+# ---------------------------------------------------------------------------
+# PDF 변환 (playwright 필요)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    not _has_playwright() or not HWP_TEST.exists(),
+    reason="playwright 미설치 또는 test.hwp 없음",
+)
+def test_save_test_hwp_pdf():
+    """test.hwp → PDF 변환 저장"""
+    out = _save_pdf(HWP_TEST)
+    assert out.exists() and out.stat().st_size >= 1
+
+
+@pytest.mark.skipif(
+    not _has_playwright() or not HWP_97.exists(),
+    reason="playwright 미설치 또는 test97.hwp 없음",
+)
+def test_save_test97_hwp_pdf():
+    """test97.hwp → PDF 변환 저장"""
+    out = _save_pdf(HWP_97)
+    assert out.exists() and out.stat().st_size >= 1
+
+
+@pytest.mark.skipif(
+    not _has_playwright() or not HWPX_TEST.exists(),
+    reason="playwright 미설치 또는 test.hwpx 없음",
+)
+def test_save_test_hwpx_pdf():
+    """test.hwpx → PDF 변환 저장"""
+    out = _save_pdf(HWPX_TEST)
+    assert out.exists() and out.stat().st_size >= 1

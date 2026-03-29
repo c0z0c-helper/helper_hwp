@@ -118,6 +118,13 @@ class ParsedTable:
                 grid[cell.row][cell.col] = cell.text
         return grid
 
+    def to_text(self) -> str:
+        """표/텍스트박스 셀 내용을 탭 구분 텍스트로 변환."""
+        ct = self.cell_texts
+        if not ct:
+            return ""
+        return "\n".join("\t".join(row) for row in ct)
+
     def to_markdown(self) -> str:
         """표를 마크다운 표 형식으로 변환."""
         ct = self.cell_texts
