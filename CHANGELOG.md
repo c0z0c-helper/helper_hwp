@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] - 2026-03-29
+
+### Added
+- HWP 97 (V3.00) 포맷 파서 추가 (`v97` 모듈)
+  - 파일 인식 정보, 문서 정보, 문단 리스트, 표(BOX) 파싱
+  - 텍스트 추출 (`to_txt`), 마크다운 변환 (`to_md`) 통합 지원
+  - `open_hwp97`, `Hwp97Document` API
+  - 단위 변환 (`hunit_to_cm`, `hunit_to_inch`, `hunit_to_px`)
+- HWPX (`.hwpx`) 및 OWPML (`.owpml`) 파일 지원 (`owpml` 모듈)
+- 포맷 자동 감지 (`detect_format`) — `.hwp` / `.hwp97` / `.hwpx` / `.owpml`
+- CLI 명령어 추가: `hwp2txt`, `hwp2md`, `hwp2html`, `hwp2doc`, `hwp2pdf`
+- 최상위 통합 변환 API: `open_hwp`, `to_txt`, `to_md`, `to_pdf`
+- PDF 변환 지원 (`to_pdf`, playwright 기반)
+- 테스트 전면 재작성 — pytest 기반, 44개 테스트 전부 PASS
+  - `test_convert_outputs.py`: 변환 결과 파일 저장 검증
+  - `test_hwp_iter_tags.py`: `iter_tags` 순회 검증
+  - `test_hwp_to_markdown.py`: 마크다운 변환 검증
+  - `test_hwp_to_pdf.py`: PDF 변환 검증
+- 테스트 파일 추가: `test.hwpx`, `test.owpml`, `test97.hwp`, `testTable.hwp`, `test장평.hwp`
+
+### Changed
+- `open_hwp` 포맷 자동 감지 dispatch 방식으로 전환 (v50 / v97 / owpml 통합)
+- 공통 외부 인터페이스 Enum (`ElementType`, `IterMode`) 세 포맷 공유
+- `upload_to_pypi.py` → `upload_helper_hwp.py` 파일명 변경
+
 ## [0.5.5] - 2025-12-15
 ### Fixed
 - hwp2txt
