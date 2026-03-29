@@ -47,7 +47,7 @@ def hwp2txt_main():
     args = parser.parse_args()
 
     try:
-        from helper_hwp import hwp_to_txt
+        from helper_hwp import to_txt as hwp_to_txt
 
         text = hwp_to_txt(args.input)
         output_path = _get_output_path(args.input, args.output, ".txt")
@@ -70,7 +70,7 @@ def hwp2md_main():
     args = parser.parse_args()
 
     try:
-        from helper_hwp import hwp_to_markdown
+        from helper_hwp import to_md as hwp_to_markdown
 
         markdown = hwp_to_markdown(args.input)
         output_path = _get_output_path(args.input, args.output, ".md")
@@ -98,7 +98,7 @@ def hwp2html_main():
     try:
         from helper_md_doc import md_to_html
 
-        from helper_hwp import hwp_to_markdown
+        from helper_hwp import to_md as hwp_to_markdown
 
         markdown = hwp_to_markdown(args.input)
         html = md_to_html(markdown, use_base64=args.base64)
@@ -127,7 +127,7 @@ def hwp2doc_main():
 
     try:
         from helper_md_doc import md_to_doc, md_to_html
-        from helper_hwp import hwp_to_markdown
+        from helper_hwp import to_md as hwp_to_markdown
 
         markdown = hwp_to_markdown(args.input)
         output_path = _get_output_path(args.input, args.output, ".docx")
@@ -155,7 +155,7 @@ def hwp2pdf_main():
     args = parser.parse_args()
 
     try:
-        from helper_hwp import hwp_to_pdf
+        from helper_hwp import to_pdf as hwp_to_pdf
 
         output_path = hwp_to_pdf(args.input, args.output)
 
