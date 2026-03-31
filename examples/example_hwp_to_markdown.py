@@ -1,7 +1,11 @@
 """
-Example: hwp_to_markdown
-HWP 파일을 간단한 마크다운으로 변환하는 사용 예제(MVP).
+Example: hwp_to_md
+HWP / HWP97 / HWPX 파일을 마크다운으로 변환하는 사용 예제(MVP).
+
+사용 API:
+    hwp_to_md(file_path) : 포맷 자동 감지 후 마크다운 변환
 """
+
 import sys
 from pathlib import Path
 
@@ -9,12 +13,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from helper_hwp import hwp_to_markdown
+from helper_hwp import hwp_to_md
 
-hwp_path = Path(__file__).resolve().parents[1] / 'tests' / 'test.hwp'
+hwp_path = Path(__file__).resolve().parents[1] / "tests" / "test.hwp"
 if not hwp_path.exists():
-    print('샘플 HWP 파일을 찾을 수 없습니다:', hwp_path)
+    print("샘플 HWP 파일을 찾을 수 없습니다:", hwp_path)
 else:
-    md = hwp_to_markdown(str(hwp_path))
+    md = hwp_to_md(str(hwp_path))
     print(md[:400])
-

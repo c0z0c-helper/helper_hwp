@@ -2,7 +2,13 @@
 Example: iter_tags
 문서 순회(`iter_tags`)의 모든 ElementType 출력을 확인하는 예제(MVP).
 SEQUENTIAL 및 STRUCTURED 모드의 간단한 요약을 출력합니다.
+
+사용 API:
+    hwp_open(file_path)              : 포맷 자동 감지 Document 반환
+    Hwp50Paragraph / Hwp50Table      : HWP 5.x 파싱된 요소 클래스
+    ElementType / IterMode           : 공통 Enum
 """
+
 import sys
 from pathlib import Path
 
@@ -10,33 +16,33 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from helper_hwp import ElementType, IterMode, open_hwp
-from helper_hwp.parsed_elements import ParsedParagraph, ParsedTable
+from helper_hwp import ElementType, IterMode, hwp_open
+from helper_hwp import Hwp50Paragraph, Hwp50Table
 
-hwp_path = Path(__file__).resolve().parents[1] / 'tests' / 'test.hwp'
+hwp_path = Path(__file__).resolve().parents[1] / "tests" / "test.hwp"
 if not hwp_path.exists():
-    print('샘플 HWP 파일을 찾을 수 없습니다:', hwp_path)
+    print("샘플 HWP 파일을 찾을 수 없습니다:", hwp_path)
     raise SystemExit(1)
 
 for mode in (IterMode.SEQUENTIAL, IterMode.STRUCTURED):
     print(f"\n{'='*60}")
     print(f"iter_tags mode: {mode.value}")
-    print('='*60)
+    print("=" * 60)
     counts = {}
-    with open_hwp(str(hwp_path), iter_mode=mode) as doc:
+    with hwp_open(str(hwp_path), iter_mode=mode) as doc:
         for elem_type, elem in doc.iter_tags(mode):
             counts[elem_type] = counts.get(elem_type, 0) + 1
-            
-            newline = '\n'
-            space = ' '
+
+            newline = "\n"
+            space = " "
             print(f"\n[{elem_type.value}]")
-            
+
             # 공통 속성
-            if hasattr(elem, '__dict__'):
+            if hasattr(elem, "__dict__"):
                 print(f"  전체 속성: {list(elem.__dict__.keys())}")
-            
-            if elem_type == ElementType.PARAGRAPH and isinstance(elem, ParsedParagraph):
-                text_preview = (elem.text or '').strip().replace(newline, space)[:80]
+
+            if elem_type == ElementType.PARAGRAPH and isinstance(elem, Hwp50Paragraph):
+                text_preview = (elem.text or "").strip().replace(newline, space)[:80]
                 print(f"  text: {text_preview}")
                 print(f"  is_page_first_line: {elem.is_page_first_line}")
                 if elem.char_shape:
@@ -52,15 +58,17 @@ for mode in (IterMode.SEQUENTIAL, IterMode.STRUCTURED):
                 if elem.char_shapes:
                     print(f"  char_shapes 개수: {len(elem.char_shapes)}")
                     for idx, (pos, shape) in enumerate(elem.char_shapes[:3]):
-                        print(f"    [{idx}] pos={pos}, font_size={shape.font_size}, bold={shape.bold}")
+                        print(
+                            f"    [{idx}] pos={pos}, font_size={shape.font_size}, bold={shape.bold}"
+                        )
                 if elem.paragraph:
                     print(f"  paragraph 정보:")
                     print(f"    is_page_break: {elem.paragraph.is_page_break}")
                     print(f"    char_shape_id: {elem.paragraph.char_shape_id}")
-                    if hasattr(elem.paragraph, 'line_count'):
+                    if hasattr(elem.paragraph, "line_count"):
                         print(f"    line_count: {elem.paragraph.line_count}")
-            
-            elif elem_type == ElementType.TABLE and isinstance(elem, ParsedTable):
+
+            elif elem_type == ElementType.TABLE and isinstance(elem, Hwp50Table):
                 print(f"  code: {elem.code}")
                 print(f"  control_id: {elem.control_id}")
                 print(f"  table_index: {elem.table_index}")
@@ -85,19 +93,18 @@ for mode in (IterMode.SEQUENTIAL, IterMode.STRUCTURED):
                 print(f"  calculated_width_cm: {elem.calculated_width_cm}")
                 print(f"  calculated_height_cm: {elem.calculated_height_cm}")
                 print(f"  data length: {len(elem.data) if elem.data else 0} bytes")
-            
-            elif isinstance(elem, ParsedTable):
-                # 기타 ParsedTable 타입 (PICTURE, EQUATION, SHAPE, etc.)
+
+            elif isinstance(elem, Hwp50Table):
+                # 기타 Hwp50Table 타입 (PICTURE, EQUATION, SHAPE, etc.)
                 print(f"  code: {elem.code}")
                 print(f"  control_id: {elem.control_id}")
                 print(f"  data length: {len(elem.data) if elem.data else 0} bytes")
-            
+
             else:
                 print(f"  repr: {repr(elem)}")
-    
+
     print(f"\n{'='*60}")
-    print('요약 카운트')
-    print('='*60)
+    print("요약 카운트")
+    print("=" * 60)
     for k, v in counts.items():
         print(f"{k.value}: {v}")
-

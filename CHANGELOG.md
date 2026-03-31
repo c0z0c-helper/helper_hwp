@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] - 2026-03-31
+
+### Changed
+- 최상위 공개 API 명칭 통일
+  - `open_hwp` → `hwp_open`
+  - `to_txt` → `hwp_to_txt`
+  - `to_md` → `hwp_to_md`
+  - `to_pdf` → `hwp_to_pdf`
+  - `auto_to_txt`, `auto_to_markdown` 제거 (포맷 자동 감지는 `hwp_to_txt`, `hwp_to_md`로 통합)
+- `helper_hwp.v50.__init__`: 공개 심볼에 `Hwp50*` 접두사 alias 추가, 기존 심볼 정리
+- `helper_hwp.v97.__init__`: 공개 심볼에 `Hwp97*` 접두사 alias 추가, 기존 심볼 정리
+
+### Fixed
+- 테스트 전면 갱신 — 변경된 API명 반영, 44개 테스트 전부 PASS
+  - `test_convert_outputs.py`: `hwp_to_txt`, `hwp_to_md`, `hwp_to_pdf` 사용
+  - `test_hwp_iter_tags.py`: `hwp_open`, `hwp_to_txt` 사용
+  - `test_hwp_to_markdown.py`: `hwp_to_md` 사용 (`auto_to_markdown` 제거)
+  - `test_hwp_to_pdf.py`: `hwp_to_pdf` alias 사용
+
 ## [0.5.6] - 2026-03-29
 
 ### Added

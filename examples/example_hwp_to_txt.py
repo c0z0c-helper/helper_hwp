@@ -1,7 +1,11 @@
 """
 Example: hwp_to_txt
-HWP 파일에서 문단 텍스트만 추출하여 출력하는 간단한 예제(MVP).
+HWP / HWP97 / HWPX 파일에서 문단 텍스트만 추출하여 출력하는 간단한 예제(MVP).
+
+사용 API:
+    hwp_to_txt(file_path) : 포맷 자동 감지 후 텍스트 추출
 """
+
 import sys
 from pathlib import Path
 
@@ -11,11 +15,10 @@ sys.path.insert(0, str(ROOT))
 
 from helper_hwp import hwp_to_txt
 
-hwp_path = Path(__file__).resolve().parents[1] / 'tests' / 'test.hwp'
+hwp_path = Path(__file__).resolve().parents[1] / "tests" / "test.hwp"
 if not hwp_path.exists():
-    print('샘플 HWP 파일을 찾을 수 없습니다:', hwp_path)
+    print("샘플 HWP 파일을 찾을 수 없습니다:", hwp_path)
 else:
     text = hwp_to_txt(str(hwp_path))
     # 출력 길이가 큰 경우 앞부분만 확인
     print(text[:200])
-

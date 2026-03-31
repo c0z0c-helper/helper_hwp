@@ -6,15 +6,15 @@ helper_hwp 최상위 변환 함수 (포맷 자동 감지 dispatch)
 
 설계 원칙:
     외부 인터페이스(함수 시그니처)는 통일 유지.
-    내부에서 detect_format() 으로 포맷을 감지한 뒤 open_hwp() 을 통해
+    내부에서 detect_format() 으로 포맷을 감지한 뒤 hwp_open() 을 통해
     Document 객체를 얻어 iter_tags() 패턴으로 직접 변환합니다.
     각 서브모듈의 변환 함수에 의존하지 않습니다.
 
 함수 목록:
-    open_hwp(file_path, iter_mode) -> Document  # 포맷 자동 감지 Document 반환
-    to_txt(file_path)              -> str        # 텍스트 추출
-    to_md(file_path)               -> str        # 마크다운 변환
-    to_pdf(file_path, output_path) -> str        # PDF 변환 (playwright 필요)
+    hwp_open(file_path, iter_mode) -> Document   # 포맷 자동 감지 Document 반환
+    hwp_to_txt(file_path)          -> str         # 텍스트 추출
+    hwp_to_md(file_path)           -> str         # 마크다운 변환
+    hwp_to_pdf(file_path, output)  -> str         # PDF 변환 (playwright 필요)
 """
 
 import os
@@ -111,7 +111,7 @@ def _create_markdown_table(
 # ---------------------------------------------------------------------------
 
 
-def open_hwp(file_path: Union[str, Path], iter_mode=None):
+def hwp_open(file_path: Union[str, Path], iter_mode=None):
     """HWP / HWP97 / HWPX 파일을 포맷 자동 감지 후 Document 객체 반환.
 
     반환된 Document 는 세 포맷 모두 동일한 외부 인터페이스를 제공합니다:
@@ -155,10 +155,10 @@ def open_hwp(file_path: Union[str, Path], iter_mode=None):
 # ---------------------------------------------------------------------------
 
 
-def to_txt(file_path: Union[str, Path]) -> str:
+def hwp_to_txt(file_path: Union[str, Path]) -> str:
     """HWP / HWP97 / HWPX 파일에서 텍스트 추출 (포맷 자동 감지).
 
-    내부적으로 open_hwp() + iter_tags() 를 사용합니다.
+    내부적으로 hwp_open() + iter_tags() 를 사용합니다.
     ElementType.PARAGRAPH 요소의 text 를 줄바꿈으로 연결합니다.
 
     Args:
@@ -171,7 +171,7 @@ def to_txt(file_path: Union[str, Path]) -> str:
         ValueError: 지원하지 않는 파일 포맷
         FileNotFoundError: 파일 없음
     """
-    doc = open_hwp(file_path)
+    doc = hwp_open(file_path)
     lines: List[str] = []
     for etype, elem in doc.iter_tags():
         if etype == ElementType.PARAGRAPH:
@@ -192,10 +192,10 @@ def to_txt(file_path: Union[str, Path]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def to_md(file_path: Union[str, Path]) -> str:
+def hwp_to_md(file_path: Union[str, Path]) -> str:
     """HWP / HWP97 / HWPX 파일을 마크다운으로 변환 (포맷 자동 감지).
 
-    내부적으로 open_hwp() + iter_tags() 를 사용합니다.
+    내부적으로 hwp_open() + iter_tags() 를 사용합니다.
     v50 포맷은 font_size / bold 기반 헤딩/볼드 변환이 적용됩니다.
     표는 마크다운 표 형식으로 변환됩니다.
 
@@ -210,7 +210,7 @@ def to_md(file_path: Union[str, Path]) -> str:
         FileNotFoundError: 파일 없음
     """
     fmt = detect_format(file_path)
-    doc = open_hwp(file_path)
+    doc = hwp_open(file_path)
 
     md_lines: List[str] = []
     table_paras: List[str] = []
@@ -293,10 +293,10 @@ def to_md(file_path: Union[str, Path]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def to_pdf(file_path: Union[str, Path], output_pdf_path: Optional[str] = None) -> str:
+def hwp_to_pdf(file_path: Union[str, Path], output_pdf_path: Optional[str] = None) -> str:
     """HWP / HWP97 / HWPX 파일을 PDF로 변환 (playwright 필요).
 
-    내부적으로 to_md() 으로 마크다운을 생성한 뒤
+    내부적으로 hwp_to_md() 으로 마크다운을 생성한 뒤
     helper_md_doc.md_to_html + playwright 로 PDF를 렌더링합니다.
 
     Args:
@@ -313,7 +313,7 @@ def to_pdf(file_path: Union[str, Path], output_pdf_path: Optional[str] = None) -
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"파일을 찾을 수 없습니다: {file_path}")
 
-    md = to_md(file_path)
+    md = hwp_to_md(file_path)
     html = md_to_html(md, use_base64=True)
 
     if output_pdf_path is None:
@@ -330,10 +330,10 @@ def to_pdf(file_path: Union[str, Path], output_pdf_path: Optional[str] = None) -
 
 
 __all__ = [
-    "open_hwp",
-    "to_txt",
-    "to_md",
-    "to_pdf",
+    "hwp_open",
+    "hwp_to_txt",
+    "hwp_to_md",
+    "hwp_to_pdf",
     "_format_text",
     "_create_markdown_table",
 ]

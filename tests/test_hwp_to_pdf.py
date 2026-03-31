@@ -28,7 +28,7 @@ def _has_playwright() -> bool:
 @pytest.mark.skipif(not _has_playwright(), reason="playwright 미설치")
 def test_hwp_to_pdf_creates_file(tmp_path):
     """to_pdf: PDF 파일 생성 확인"""
-    from helper_hwp import to_pdf
+    from helper_hwp import hwp_to_pdf as to_pdf
 
     pdf_path = tmp_path / "output.pdf"
     result = to_pdf(str(HWP_TEST), str(pdf_path))
@@ -41,7 +41,7 @@ def test_hwp_to_pdf_creates_file(tmp_path):
 def test_hwp_to_pdf_default_path(tmp_path):
     """to_pdf: output_pdf_path=None 이면 동일 이름으로 생성"""
     import shutil
-    from helper_hwp import to_pdf
+    from helper_hwp import hwp_to_pdf as to_pdf
 
     # tmp_path에 hwp 복사
     tmp_hwp = tmp_path / "test.hwp"

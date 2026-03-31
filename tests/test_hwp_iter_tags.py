@@ -1,7 +1,7 @@
 """
 test_hwp_iter_tags.py
 
-open_hwp() iter_tags 기반 순회 pytest 테스트.
+hwp_open() iter_tags 기반 순회 pytest 테스트.
 test.hwp, testTable.hwp, test장평.hwp 대상.
 """
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from helper_hwp import ElementType, IterMode, open_hwp, to_txt
+from helper_hwp import ElementType, IterMode, hwp_open, hwp_to_txt
 
 TESTS_DIR = Path(__file__).parent
 HWP_TEST = TESTS_DIR / "test.hwp"
@@ -28,7 +28,7 @@ HWP_97 = TESTS_DIR / "test97.hwp"
 def _collect_tags(hwp_path: Path, mode: IterMode = IterMode.SEQUENTIAL) -> dict:
     """iter_tags 결과를 ElementType별 카운트로 집계"""
     counts: dict = {}
-    with open_hwp(str(hwp_path), mode) as doc:
+    with hwp_open(str(hwp_path), mode) as doc:
         for etype, _ in doc.iter_tags():
             counts[etype] = counts.get(etype, 0) + 1
     return counts
@@ -42,7 +42,7 @@ def _collect_tags(hwp_path: Path, mode: IterMode = IterMode.SEQUENTIAL) -> dict:
 @pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
 def test_open_hwp_file_info():
     """HwpDocument 기본 속성 확인"""
-    with open_hwp(str(HWP_TEST)) as doc:
+    with hwp_open(str(HWP_TEST)) as doc:
         assert doc.version is not None
         assert isinstance(doc.compressed, bool)
         assert isinstance(doc.encrypted, bool)
@@ -59,7 +59,7 @@ def test_iter_tags_sequential_has_paragraphs():
 @pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
 def test_iter_tags_sequential_paragraph_text():
     """SEQUENTIAL 모드: 첫 비어있지 않은 문단 텍스트 확인"""
-    with open_hwp(str(HWP_TEST)) as doc:
+    with hwp_open(str(HWP_TEST)) as doc:
         for etype, elem in doc.iter_tags():
             if etype == ElementType.PARAGRAPH and elem.text.strip():
                 assert len(elem.text) >= 1
@@ -84,7 +84,7 @@ def test_iter_tags_structured_has_paragraphs():
 @pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
 def test_iter_tags_table_metadata():
     """표가 있는 경우 TABLE 요소에 rows/cols 정보 존재"""
-    with open_hwp(str(HWP_TEST)) as doc:
+    with hwp_open(str(HWP_TEST)) as doc:
         for etype, elem in doc.iter_tags():
             if etype == ElementType.TABLE:
                 assert elem.rows is not None
@@ -98,7 +98,7 @@ def test_iter_tags_table_metadata():
 @pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
 def test_char_shape_info():
     """문단 글자 모양 정보가 존재함"""
-    with open_hwp(str(HWP_TEST)) as doc:
+    with hwp_open(str(HWP_TEST)) as doc:
         for etype, elem in doc.iter_tags():
             if etype == ElementType.PARAGRAPH and elem.char_shape:
                 assert elem.char_shape.font_size > 0
@@ -109,7 +109,7 @@ def test_char_shape_info():
 @pytest.mark.skipif(not HWP_TEST.exists(), reason=f"{HWP_TEST.name} 없음")
 def test_to_text_not_empty():
     """to_text() 결과가 비어있지 않음"""
-    with open_hwp(str(HWP_TEST)) as doc:
+    with hwp_open(str(HWP_TEST)) as doc:
         text = doc.to_text()
     assert isinstance(text, str)
     assert len(text) >= 1
@@ -130,7 +130,7 @@ def test_table_hwp_has_table():
 @pytest.mark.skipif(not HWP_TABLE.exists(), reason=f"{HWP_TABLE.name} 없음")
 def test_table_hwp_cell_para_counts():
     """testTable.hwp: cell_para_counts 배열 존재"""
-    with open_hwp(str(HWP_TABLE)) as doc:
+    with hwp_open(str(HWP_TABLE)) as doc:
         for etype, elem in doc.iter_tags():
             if etype == ElementType.TABLE:
                 assert elem.cell_para_counts is not None
@@ -158,29 +158,29 @@ def test_jangpyeong_hwp_paragraphs():
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_txt_returns_string():
-    """to_txt (hwp97): str 반환"""
-    result = to_txt(str(HWP_97))
+    """hwp_to_txt (hwp97): str 반환"""
+    result = hwp_to_txt(str(HWP_97))
     assert isinstance(result, str)
     assert len(result) >= 1
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_txt_no_garbage():
-    """to_txt (hwp97): U+FFFD 깨진 문자 미포함"""
-    result = to_txt(str(HWP_97))
+    """hwp_to_txt (hwp97): U+FFFD 깨진 문자 미포함"""
+    result = hwp_to_txt(str(HWP_97))
     assert "\ufffd" not in result
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_txt_paragraph_count():
-    """to_txt (hwp97): 최소 100개 이상 줄 포함 (636 non-empty 기준)"""
-    result = to_txt(str(HWP_97))
+    """hwp_to_txt (hwp97): 최소 100개 이상 줄 포함 (636 non-empty 기준)"""
+    result = hwp_to_txt(str(HWP_97))
     lines = [ln for ln in result.splitlines() if ln.strip()]
     assert len(lines) >= 100
 
 
 @pytest.mark.skipif(not HWP_97.exists(), reason=f"{HWP_97.name} 없음")
 def test_hwp97_to_txt_contains_cover_text():
-    """to_txt (hwp97): 표지 핵심 텍스트 포함"""
-    result = to_txt(str(HWP_97))
+    """hwp_to_txt (hwp97): 표지 핵심 텍스트 포함"""
+    result = hwp_to_txt(str(HWP_97))
     assert "제 안 요 청 서" in result

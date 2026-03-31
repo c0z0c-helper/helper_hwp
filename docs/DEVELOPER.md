@@ -22,15 +22,15 @@ helper_hwp/
 │   ├── __init__.py              # 패키지 초기화 및 공개 API
 │   ├── constants.py             # 공통 Enum (ElementType, IterMode) - 3포맷 공유
 │   ├── detector.py              # 파일 포맷 자동 감지 (magic bytes + 확장자)
-│   ├── converters.py            # 통합 변환 API (open_hwp, to_txt, to_md, to_pdf)
+│   ├── converters.py            # 통합 변환 API (hwp_open, hwp_to_txt, hwp_to_md, hwp_to_pdf)
 │   ├── cli.py                   # CLI 진입점 (hwp2txt, hwp2md, hwp2html 등)
 │   │
 │   ├── v50/                     # HWP 5.x (OLE Compound File Binary) 파서
 │   │   ├── __init__.py
 │   │   ├── document_structure.py  # CFB 스토리지 파싱, HwpFile, Section
 │   │   ├── char_paragraph.py      # 문단 및 문자 처리
-│   │   ├── parsed_elements.py     # ParsedParagraph, ParsedTable, ParsedPage
-│   │   ├── parser.py              # HwpDocument (고수준 API)
+│   │   ├── parsed_elements.py     # Hwp50Paragraph, Hwp50Table, Hwp50Page (alias)
+│   │   ├── parser.py              # Hwp50Document (고수준 API)
 │   │   ├── models.py              # Version, Header 데이터 모델
 │   │   ├── constants.py           # v50 내부 상수 (RecordTag, ControlID 등)
 │   │   ├── converters.py          # v50 전용 변환 헬퍼
@@ -45,7 +45,7 @@ helper_hwp/
 │   │   ├── char_paragraph.py      # 문단 및 문자 처리
 │   │   ├── parsed_elements.py     # ParsedParagraph, ParsedTable
 │   │   ├── parser.py              # Hwp97Document (고수준 API)
-│   │   ├── models.py              # DocumentInfo, DocumentSummary
+│   │   ├── models.py              # Hwp97FileHeader, Hwp97DocumentInfo (alias)
 │   │   ├── constants.py           # v97 내부 상수 (SpecialCharCode, BoxType 등)
 │   │   ├── converters.py          # v97 전용 변환 헬퍼
 │   │   └── utils.py               # v97 유틸리티
@@ -53,7 +53,7 @@ helper_hwp/
 │   └── owpml/                   # HWPX (OWPML, ZIP/XML) 파서
 │       ├── __init__.py
 │       ├── document_structure.py  # HwpxFile (ZIP 압축 해제 + XML 파싱)
-│       ├── parsed_elements.py     # ParsedParagraph, ParsedTable, ParsedPage
+│       ├── parsed_elements.py     # HwpxParagraph, HwpxTable, HwpxPage (alias)
 │       ├── parser.py              # HwpxDocument (고수준 API)
 │       ├── models.py              # HwpxVersion, HwpxHeader
 │       └── constants.py           # owpml 내부 상수 (OwpmlTag 등)
@@ -101,10 +101,10 @@ helper_hwp/
   ↓ detector.detect_format()
     magic bytes(D0CF... / 504B... / "HWP Document File V3.") 우선 판별
     → HwpFormat.HWP_V5 / HWP_V10 / HWPX / UNKNOWN
-  ↓ converters.open_hwp()
-    HWP_V5  → open_hwp_v50() → HwpDocument
-    HWP_V10 → open_hwp97()   → Hwp97Document
-    HWPX    → open_hwpx()    → HwpxDocument
+  ↓ converters.hwp_open()
+    HWP_V5  → open_hwp50()  → Hwp50Document
+    HWP_V10 → open_hwp97()  → Hwp97Document
+    HWPX    → open_hwpx()   → HwpxDocument
 ```
 
 ### 2.2. 파서 계층 (공통 구조)
@@ -118,9 +118,9 @@ XxxFile  (document_structure.py - 저수준 파싱)
   ↓
 XxxDocument  (parser.py - 고수준 API, context manager 지원)
   ↓
-iter_tags()  →  (ElementType, ParsedXxx) 튜플
+iter_tags()  →  (ElementType, Hwp50Paragraph | Hwp97Paragraph | HwpxParagraph | ...) 튜플
   ↓
-to_txt() / to_md()  (converters.py - 최상위 통합 변환)
+hwp_to_txt() / hwp_to_md()  (converters.py - 최상위 통합 변환)
 ```
 
 ### 2.3. 통합 외부 인터페이스 Enum
@@ -202,9 +202,9 @@ ZIP 패키지
 최상위 통합 변환 함수를 정의합니다. 각 서브모듈 변환 함수에 직접 의존하지 않고, `detect_format()` → `open_hwp()` → `iter_tags()` 패턴으로 포맷에 무관하게 변환합니다.
 
 ```python
-# to_txt 내부 흐름 (단순화)
-def to_txt(file_path: str) -> str:
-    with open_hwp(file_path) as doc:
+# hwp_to_txt 내부 흐름 (단순화)
+def hwp_to_txt(file_path: str) -> str:
+    with hwp_open(file_path) as doc:
         lines = []
         for etype, elem in doc.iter_tags():
             if etype == ElementType.PARAGRAPH:
@@ -296,7 +296,7 @@ mypy helper_hwp
 - Docstring: Google 스타일
 
 ```python
-def to_txt(file_path: str) -> str:
+def hwp_to_txt(file_path: str) -> str:
     """HWP/HWPX 파일에서 텍스트를 추출합니다.
 
     Args:
@@ -356,23 +356,23 @@ HTML 커버리지 리포트는 `htmlcov/index.html` 에 생성됩니다.
 - 모든 새 기능은 테스트 필수
 
 ```python
-def test_to_txt_hwp5():
+def test_hwp_to_txt_hwp5():
     """HWP 5.x 텍스트 추출 테스트"""
-    result = to_txt('tests/test.hwp')
+    result = hwp_to_txt('tests/test.hwp')
     assert isinstance(result, str)
     assert len(result) > 0
 
 
-def test_to_txt_hwp97():
+def test_hwp_to_txt_hwp97():
     """HWP 97 텍스트 추출 테스트"""
-    result = to_txt('tests/test97.hwp')
+    result = hwp_to_txt('tests/test97.hwp')
     assert isinstance(result, str)
     assert len(result) > 0
 
 
-def test_to_txt_hwpx():
+def test_hwp_to_txt_hwpx():
     """HWPX 텍스트 추출 테스트"""
-    result = to_txt('tests/test.hwpx')
+    result = hwp_to_txt('tests/test.hwpx')
     assert isinstance(result, str)
     assert len(result) > 0
 ```
@@ -452,7 +452,7 @@ Semantic Versioning (MAJOR.MINOR.PATCH):
 | 하위 호환 기능 추가 | MINOR |
 | 버그 수정 | PATCH |
 
-현재 버전: `0.5.6`
+현재 버전: `0.5.7`
 
 ### 7.2. 버전 변경 파일
 
