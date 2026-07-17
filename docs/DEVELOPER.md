@@ -452,7 +452,7 @@ Semantic Versioning (MAJOR.MINOR.PATCH):
 | 하위 호환 기능 추가 | MINOR |
 | 버그 수정 | PATCH |
 
-현재 버전: `0.5.7`
+현재 버전: `0.6.0`
 
 ### 7.2. 버전 변경 파일
 

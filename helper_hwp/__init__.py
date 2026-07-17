@@ -199,7 +199,7 @@ __all__ = [
     "open_hwpx",
 ]
 
-__version__ = "0.5.7"
+__version__ = "0.6.0"
 
 # GitHub Repository URL
 GITHUB_URL = "https://github.com/c0z0c-helper/helper_hwp"

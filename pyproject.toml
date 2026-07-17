@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "helper-hwp"
-version = "0.5.7"
+version = "0.6.0"
 description = "Python HWP 파일 파서 및 텍스트 추출 라이브러리"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 authors = [
     {name = "c0z0c", email = "c0z0c.dev@gmail.com"}
 ]
@@ -16,7 +16,6 @@ keywords = ["hwp", "hancom", "hangul", "parser", "text-extraction"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -25,11 +24,17 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Text Processing",
+    "Typing :: Typed",
 ]
 
 dependencies = [
+    "build>=1.2.2.post1",
+    "helper-md-doc>=0.5.0",
     "olefile>=0.46",           # CFB (Compound File Binary) 파싱
+    "pip>=25.0.1",
+    "playwright>=1.40.0",
     "pycryptodome>=3.15.0",    # AES 암호화 해제
+    "pytest>=8.3.5",
 ]
 
 [project.optional-dependencies]
@@ -64,6 +69,9 @@ Issues = "https://github.com/c0z0c-helper/helper_hwp/issues"
 where = ["."]
 include = ["helper_hwp*"]
 
+[tool.setuptools.package-data]
+helper_hwp = ["py.typed"]
+
 [tool.black]
 line-length = 100
 target-version = ['py38']
@@ -84,3 +92,18 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--cov=helper_hwp --cov-report=html --cov-report=term-missing"
+
+[dependency-groups]
+dev = [
+    "black>=23.0.0",
+    "build>=0.10.0",
+    "helper-md-doc>=0.5.0",
+    "mypy>=1.0.0",
+    "olefile>=0.46",
+    "playwright>=1.40.0",
+    "pycryptodome>=3.15.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "twine>=4.0.0",
+]
