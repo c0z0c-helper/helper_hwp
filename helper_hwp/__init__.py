@@ -77,51 +77,46 @@ requirements_rnac.check_and_print_dependencies()
 from .constants import ElementType, IterMode
 
 # ---------------------------------------------------------------------------
+# 최상위 통합 변환 API (포맷 자동 dispatch) — 권장
+# ---------------------------------------------------------------------------
+from .converters import hwp_open, hwp_to_md, hwp_to_pdf, hwp_to_txt
+
+# ---------------------------------------------------------------------------
 # 포맷 자동 감지
 # ---------------------------------------------------------------------------
 from .detector import HwpFormat, detect_format
-
-# ---------------------------------------------------------------------------
-# 최상위 통합 변환 API (포맷 자동 dispatch) — 권장
-# ---------------------------------------------------------------------------
-from .converters import hwp_open, hwp_to_txt, hwp_to_md, hwp_to_pdf
-
-# ---------------------------------------------------------------------------
-# HWP 5.0 (v50) API
-# ---------------------------------------------------------------------------
-from .v50.document_structure import HwpFile as Hwp50File
-from .v50.models import Header as Hwp50Header, Version as Hwp50Version
-from .v50.parsed_elements import (
-    ParsedPage as Hwp50Page,
-    ParsedParagraph as Hwp50Paragraph,
-    ParsedTable as Hwp50Table,
-)
-from .v50.parser import HwpDocument as Hwp50Document
-from .v50 import open_hwp50
-from .v50 import hwp50_unit_to_cm, hwp50_unit_to_inch, hwp50_unit_to_px
-
-# ---------------------------------------------------------------------------
-# HWP 97 (v97) API
-# ---------------------------------------------------------------------------
-from .v97.models import DocumentInfo as Hwp97DocumentInfo, FileHeader as Hwp97FileHeader
-from .v97.parsed_elements import (
-    ParsedParagraph as Hwp97Paragraph,
-    ParsedTable as Hwp97Table,
-)
-from .v97.parser import Hwp97Document, open_hwp97
-from .v97 import hwp97_unit_to_cm, hwp97_unit_to_inch, hwp97_unit_to_px
 
 # ---------------------------------------------------------------------------
 # HWPX (owpml) API
 # ---------------------------------------------------------------------------
 from .owpml.document_structure import HwpxFile
 from .owpml.models import HwpxHeader, HwpxVersion
-from .owpml.parsed_elements import (
-    ParsedPage as HwpxPage,
-    ParsedParagraph as HwpxParagraph,
-    ParsedTable as HwpxTable,
-)
+from .owpml.parsed_elements import ParsedPage as HwpxPage
+from .owpml.parsed_elements import ParsedParagraph as HwpxParagraph
+from .owpml.parsed_elements import ParsedTable as HwpxTable
 from .owpml.parser import HwpxDocument, open_hwpx
+from .v50 import hwp50_unit_to_cm, hwp50_unit_to_inch, hwp50_unit_to_px, open_hwp50
+
+# ---------------------------------------------------------------------------
+# HWP 5.0 (v50) API
+# ---------------------------------------------------------------------------
+from .v50.document_structure import HwpFile as Hwp50File
+from .v50.models import Header as Hwp50Header
+from .v50.models import Version as Hwp50Version
+from .v50.parsed_elements import ParsedPage as Hwp50Page
+from .v50.parsed_elements import ParsedParagraph as Hwp50Paragraph
+from .v50.parsed_elements import ParsedTable as Hwp50Table
+from .v50.parser import HwpDocument as Hwp50Document
+from .v97 import hwp97_unit_to_cm, hwp97_unit_to_inch, hwp97_unit_to_px
+
+# ---------------------------------------------------------------------------
+# HWP 97 (v97) API
+# ---------------------------------------------------------------------------
+from .v97.models import DocumentInfo as Hwp97DocumentInfo
+from .v97.models import FileHeader as Hwp97FileHeader
+from .v97.parsed_elements import ParsedParagraph as Hwp97Paragraph
+from .v97.parsed_elements import ParsedTable as Hwp97Table
+from .v97.parser import Hwp97Document, open_hwp97
 
 auto_open = hwp_open
 auto_to_txt = hwp_to_txt
@@ -199,7 +194,7 @@ __all__ = [
     "open_hwpx",
 ]
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 
 # GitHub Repository URL
 GITHUB_URL = "https://github.com/c0z0c-helper/helper_hwp"
