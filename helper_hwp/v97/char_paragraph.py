@@ -133,7 +133,8 @@ class ParaInfo:
         repr_cs = CharShape.from_bytes(header[12:43])
 
         para_shape_raw = None
-        if follow_prev == 0:
+        # 스펙: 빈 문단(글자 수 0)은 문단 리스트의 끝이며 43바이트로 끝난다(문단 모양 없음).
+        if follow_prev == 0 and char_count > 0:
             # 문단 모양 187바이트 읽기
             raw = stream.read(PARA_SHAPE_SIZE)
             if len(raw) < PARA_SHAPE_SIZE:
